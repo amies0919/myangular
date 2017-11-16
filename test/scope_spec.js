@@ -4,9 +4,147 @@ var Scope = require('../src/scope');
 describe('Scope', function(){
 	it('can be constructed and used as an object',function(){
 		var scope = new Scope();
-		scope.aProperty = 1;
-		expect(scope.aProperty).toBe(1);
+		scope.aProperty = 2;
+		expect(scope.aProperty).toBe(2);
 	});
+	describe('$watchGroup', function () {
+		var scope;
+		beforeEach(function () {
+			scope = new Scope();
+        });
+		it("takes watches as an array and calls listener with arrays", function () {
+			var gotNewValues, gotOldValues;
+
+			scope.aValue = 1;
+			scope.anotherValue = 2;
+
+			scope.$watchGroup([
+				function (scope) {
+					return scope.aValue;
+                },
+				function (scope) {
+					return scope.anotherValue;
+                }
+			], function (newValues, oldValues, scope) {
+				gotNewValues = newValues;
+				gotOldValues = oldValues;
+            });
+			scope.$digest();
+
+			expect(gotNewValues).toEqual([1,2]);
+			expect(gotOldValues).toEqual([1,2]);
+        });
+		it('only calls listener once per digest', function () {
+			var counter = 0;
+
+			scope.aValue = 1;
+			scope.anotherValue = 2;
+
+			scope.$watchGroup([
+				function (scope) {
+					return scope.aValue;
+                },
+				function (scope) {
+					return scope.anotherValue;
+                }
+			], function (newValues, oldValues, scope) {
+				counter++;
+            });
+			scope.$digest();
+
+			expect(counter).toEqual(1);
+        });
+		it('uses the same array of old and new values on first run', function () {
+			var gotNewValues, gotOldValues;
+
+			scope.aValue = 1;
+			scope.anotherValue = 2;
+
+			scope.$watchGroup([
+				function (scope) {
+					return scope.aValue;
+                },
+				function (scope) {
+					return scope.anotherValue;
+                }
+			], function (newValues, oldValues, scope) {
+				gotNewValues = newValues;
+				gotOldValues = oldValues;
+            });
+			scope.$digest();
+			expect(gotNewValues).toBe(gotOldValues);
+        });
+		it('uses different arrays for old and new values on subsequent runs', function () {
+			var gotNewValues, gotOldValues;
+
+			scope.aValue = 1;
+			scope.anotherValue = 2;
+			scope.$watchGroup([
+				function (scope) {
+					return scope.aValue;
+                },
+				function (scope) {
+					return scope.anotherValue;
+                }
+			], function (newValues, oldValues, scope) {
+				gotNewValues = newValues;
+				gotOldValues = oldValues;
+            });
+			scope.$digest();
+
+            scope.aValue = 2;
+			scope.anotherValue = 3;
+			scope.$digest();
+
+			expect(gotNewValues).toEqual([2,3]);
+			expect(gotOldValues).toEqual([1,2]);
+        });
+		it('calls the listener once when the watch array is empty', function () {
+			var gotNewValues, gotOldValues;
+
+			scope.$watchGroup([], function (newValues, oldValues, scope) {
+				gotNewValues = newValues;
+				gotOldValues = oldValues;
+            });
+			scope.$digest();
+
+			expect(gotNewValues).toEqual([]);
+			expect(gotOldValues).toEqual([]);
+        });
+		it('can be deregistered', function () {
+			var counter = 0;
+
+			scope.aValue = 1;
+			scope.anotherValue = 2;
+
+			var destroyGroup = scope.$watchGroup([
+				function (scope) {
+					return scope.aValue;
+                },
+				function (scope) {
+					return scope.anotherValue;
+                }
+			], function (newValues, oldValues, scope) {
+				counter++;
+            });
+			scope.$digest();
+
+			scope.anotherValue = 3;
+			destroyGroup();
+			scope.$digest();
+			expect(counter).toEqual(1);
+        });
+		it('does not call the zero-watch listener when deregistered first', function () {
+			var counter = 0;
+
+			var destroyGroup = scope.$watchGroup([],function (newValues, oldValues, scope) {
+				counter++;
+            });
+			destroyGroup();
+			scope.$digest();
+			expect(counter).toEqual(0);
+        });
+    });
 	describe('$postDigest', function(){
 			var scope;
 			beforeEach(function(){
@@ -41,18 +179,24 @@ describe('Scope', function(){
 					scope.$digest();
 					expect(scope.watchedValue).toBe('changed value');
 			});
-			it('catches exceptions in $$postDigest', function(){
-					var didRun = false;
-					scope.$$postDigest(function(){
-						throw 'Error';
-					});
-					scope.$$postDigest(function(){
-						didRun = true;
-					});
-					scope.$digest();
-					expect(didRun).toBe(true);
-			});
 	});
+	describe('$$postDigest', function () {
+        var scope;
+        beforeEach(function(){
+            scope = new Scope();
+        });
+        it('catches exceptions in $$postDigest', function(){
+            var didRun = false;
+            scope.$$postDigest(function(){
+                throw 'Error';
+            });
+            scope.$$postDigest(function(){
+                didRun = true;
+            });
+            scope.$digest();
+            expect(didRun).toBe(true);
+        });
+    });
 	describe('$applyAsync', function(){
 		var scope;
 		beforeEach(function(){
@@ -220,25 +364,6 @@ describe('Scope', function(){
 			},function(newValue, oldValue, scope){});
 
 			expect(function(){scope.$digest();}).toThrow();
-		});
-		it('has a $$phase field whose value is the current digest phase', function(){
-			scope.aValue = [1,2,3];
-			scope.phaseInWatchFunction = undefined;
-			scope.phaseInListenerFunction = undefined;
-			scope.phaseInApplyFunction = undefined;
-
-			scope.$watch(function(scope){
-				scope.phaseInWatchFunction = scope.$$phase;
-				return scope.aValue;
-			},function(newValue, oldValue, scope){
-				scope.phaseInListenerFunction = scope.$$phase;
-			});
-			scope.$apply(function(scope){
-				scope.phaseInApplyFunction = scope.$$phase;
-			});
-			expect(scope.phaseInWatchFunction).toBe('$digest');
-			expect(scope.phaseInListenerFunction).toBe('$digest');
-			expect(scope.phaseInApplyFunction).toBe('$apply');
 		});
 		it('schedules a digest in $evalAsync', function(done){
 			scope.aValue = 'abc';
@@ -597,6 +722,25 @@ describe('Scope', function(){
 			scope.$digest();
 			expect(scope.counter).toBe(0);
 		});
+        it('has a $$phase field whose value is the current digest phase', function(){
+            scope.aValue = [1,2,3];
+            scope.phaseInWatchFunction = undefined;
+            scope.phaseInListenerFunction = undefined;
+            scope.phaseInApplyFunction = undefined;
+
+            scope.$watch(function(scope){
+                scope.phaseInWatchFunction = scope.$$phase;
+                return scope.aValue;
+            },function(newValue, oldValue, scope){
+                scope.phaseInListenerFunction = scope.$$phase;
+            });
+            scope.$apply(function(scope){
+                scope.phaseInApplyFunction = scope.$$phase;
+            });
+            expect(scope.phaseInWatchFunction).toBe('$digest');
+            expect(scope.phaseInListenerFunction).toBe('$digest');
+            expect(scope.phaseInApplyFunction).toBe('$apply');
+        });
 		
 	});
 });

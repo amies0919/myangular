@@ -20,10 +20,10 @@ Scope.prototype.$watch = function(watchFn, listenerFn, valueEq){
 	valueEq: !!valueEq,
 	last: initWatchVal
     };
-    this.$$watchers.unshift(watcher);
+    this.$$watchers.unshift(watcher);//unshift可向数组的开头添加一个或更多元素，并返回新的长度
     this.$$lastDirtyWatch = null;
     return function(){
-    	var index = self.$$watchers.indexOf(watcher);
+    	var index = self.$$watchers.indexOf(watcher);//indexOf 用来判断数组是否包含某个元素项目,匹配返回下标
     	if(index >=0){
     		self.$$watchers.splice(index, 1);
     		self.$$lastDirtyWatch = null;
@@ -167,5 +167,50 @@ Scope.prototype.$applyAsync = function(expr){
 };
 Scope.prototype.$$postDigest = function(fn){
 		this.$$postDigestQueue.push(fn);
+};
+Scope.prototype.$watchGroup = function (watchFns, listenerFn) {
+	var self = this;
+	var newValues = new Array(watchFns.length);
+	var oldValues = new Array(watchFns.length);
+	var changeReactionScheduled = false;
+	var firstRun = true;
+
+	if(watchFns.length === 0){
+		var shouldcall = true;
+		self.$evalAsync(function () {
+			if(shouldcall){
+                listenerFn(newValues, newValues, self);
+			}
+        });
+		return function () {
+			shouldcall = false;
+        };
+	}
+
+	function watchGroupListener() {
+		if(firstRun){
+			firstRun = false;
+            listenerFn(newValues, newValues, self);
+		}else{
+            listenerFn(newValues, oldValues, self);
+		}
+		changeReactionScheduled = false;
+    }
+	var destroyFunctions = _.map(watchFns, function (watchFn, i) {
+		return self.$watch(watchFn, function (newValue, oldValue) {
+			newValues[i] = newValue;
+			oldValues[i] = oldValue;
+			if(!changeReactionScheduled){
+				changeReactionScheduled = true;
+				self.$evalAsync(watchGroupListener);
+			}
+        });
+    });
+
+	return function () {
+		_.forEach(destroyFunctions, function (destroyFunction) {
+			destroyFunction();
+        });
+    };
 };
 module.exports = Scope;
