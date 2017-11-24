@@ -17,13 +17,18 @@ Lexer.prototype.lex = function (text) {
             this.readNumber();
         }else if(this.ch === '\'' || this.ch ==='"') {
             this.readString(this.ch);
-        } else if(this.isIdent(this.ch)){
+        } else if(this.isIdent(this.ch)) {
             this.readIdent();
+        }else if(this.isWhitespace(this.ch)){
+            this.index++;
         } else {
             throw 'Unexpected next character:' + this.ch;
         }
     }
     return this.tokens;
+};
+Lexer.prototype.isWhitespace = function (ch) {
+    return ch === ' ' || ch === '\r' || ch === '\t' || ch === '\n' || ch === '\v' || ch === '\u00A0';
 };
 Lexer.prototype.peek = function () {
     return this.index < this.text.length -1 ?
