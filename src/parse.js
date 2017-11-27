@@ -17,7 +17,7 @@ Lexer.prototype.lex = function (text) {
             this.readNumber();
         }else if(this.is('\'"')) {
             this.readString(this.ch);
-        }else if(this.is('[],{}:')){
+        }else if(this.is('[],{}:.()')){
             this.tokens.push({
                 text: this.ch
             });
@@ -34,7 +34,7 @@ Lexer.prototype.lex = function (text) {
 };
 Lexer.prototype.is = function (chs) {
     return chs.indexOf(this.ch) >= 0;
-}
+};
 Lexer.prototype.isWhitespace = function (ch) {
     return ch === ' ' || ch === '\r' || ch === '\t' || ch === '\n' || ch === '\v' || ch === '\u00A0';
 };
@@ -145,6 +145,10 @@ AST.ArrayExpression = 'ArrayExpression';
 AST.ObjectExpression = 'ObjectExpression';
 AST.Property = 'Property';
 AST.Identifier = 'Identifier';
+AST.ThisExpression = 'ThisExpression';
+AST.LocalsExpression = 'LocalsExpression';
+AST.MemberExpression = 'MemberExpression';
+AST.CallExpression = 'CallExpression';
 AST.prototype.ast = function (text) {
     this.tokens = this.lexer.lex(text);
     return this.program();
@@ -152,19 +156,58 @@ AST.prototype.ast = function (text) {
 AST.prototype.program = function () {
     return {type: AST.Program, body: this.primary()};
 };
-AST.prototype.primary = function () {
-    if(this.expect('[')) {
-        return this.arrayDeclaration();
-    }else if(this.expect('{')){
-        return this.object();
-    }else if(this.constants.hasOwnProperty(this.tokens[0].text)){
-        return this.constants[this.consume().text];
-    }else{
-        return this.constant();
-    }
+AST.prototype.parseArguments = function () {
+  var args = [];
+  if(!this.peek(')')){
+      do{
+          args.push(this.primary());
+      }while (this.expect(','));
+  }
+  return args;
 };
-AST.prototype.expect = function (e) {
-    var token = this.peek(e);
+AST.prototype.primary = function () {
+    var primary;
+    if(this.expect('[')) {
+        primary = this.arrayDeclaration();
+    }else if(this.expect('{')){
+        primary = this.object();
+    }else if(this.constants.hasOwnProperty(this.tokens[0].text)) {
+        primary = this.constants[this.consume().text];
+    }else if(this.peek().identifier){
+        primary = this.identifier();
+    }else{
+        primary = this.constant();
+    }
+    var next;
+    while((next = this.expect('.','[','('))){
+        if(next.text === '['){
+            primary = {
+                type: AST.MemberExpression,
+                object: primary,
+                property: this.primary(),
+                computed: true
+            };
+            this.consume(']');
+        }else if(next.text === '.'){
+            primary = {
+                type: AST.MemberExpression,
+                object: primary,
+                property: this.identifier(),
+                computed: false
+            };
+        }else if(next.text === '('){
+            primary = {
+                type: AST.CallExpression,
+                callee: primary,
+                arguments: this.parseArguments()
+            };
+            this.consume(')');
+        }
+    }
+    return primary;
+};
+AST.prototype.expect = function (e1, e2, e3, e4) {
+    var token = this.peek(e1, e2, e3, e4);
     if(token){
         return this.tokens.shift();
     }
@@ -203,10 +246,10 @@ AST.prototype.object = function () {
 AST.prototype.identifier = function () {
   return {type: AST.Identifier, name: this.consume().text};
 };
-AST.prototype.peek = function (e) {
+AST.prototype.peek = function (e1, e2, e3, e4) {
     if(this.tokens.length > 0){
         var text = this.tokens[0].text;
-        if(text === e || !e){
+        if(text === e1 || text === e2 || text === e3 || text === e4 || (!e1 && !e2 && !e3 && !e4)){
             return this.tokens[0];
         }
     }
@@ -224,17 +267,23 @@ AST.prototype.constant = function () {
 AST.prototype.constants = {
     'null': {type: AST.Literal, value: null},
     'true': {type: AST.Literal, value: true},
-    'false': {type: AST.Literal, value: false}
+    'false': {type: AST.Literal, value: false},
+    'this': {type: AST.ThisExpression},
+    '$locals': {type: AST.LocalsExpression}
 };
 function ASTCompiler(astBuilder) {
     this.astBuilder = astBuilder;
 }
 ASTCompiler.prototype.compile = function (text) {
     var ast = this.astBuilder.ast(text);
-    this.state = {body:[]};
+    this.state = {body:[], nextId: 0, vars: []};
     this.recurse(ast);
     /* jshint -W054 */
-    return new Function(this.state.body.join(' '));
+    return new Function('s','l',
+        (this.state.vars.length?
+            'var '+ this.state.vars.join(',')+';':
+                ''
+        )+this.state.body.join(' '));
     /* jshint +W054 */
 };
 ASTCompiler.prototype.stringEscapeRegex = /[^ a-zA_Z0-9]/g;
@@ -250,7 +299,31 @@ ASTCompiler.prototype.escape = function (value) {
         return value;
     }
 };
+ASTCompiler.prototype.nonComputedMember = function (left, right) {
+    return '(' + left + ').'+right;
+};
+ASTCompiler.prototype.computedMember = function (left, right) {
+  return '(' + left + ')[' + right +']';
+};
+ASTCompiler.prototype.if_ = function (test, consequent) {
+  this.state.body.push('if(', test, '){',consequent,'}');
+};
+ASTCompiler.prototype.assign = function (id, value) {
+  return id + '=' + value + ';';
+};
+ASTCompiler.prototype.nextId = function () {
+  var id = 'v' + (this.state.nextId++);
+  this.state.vars.push(id);
+  return id;
+};
+ASTCompiler.prototype.not = function (e) {
+  return '!(' + e + ')' ;
+};
+ASTCompiler.prototype.getHasOwnProperty = function (object, property) {
+    return object + '&&(' + this.escape(property) + ' in ' + object + ')';
+};
 ASTCompiler.prototype.recurse = function (ast) {
+    var intoId;
     switch (ast.type) {
         case AST.Program:
             this.state.body.push('return', this.recurse(ast.body),';');
@@ -270,6 +343,33 @@ ASTCompiler.prototype.recurse = function (ast) {
                 return key + ':' + value;
             }, this));
             return '{'+ properties.join(',') +'}';
+        case AST.Identifier:
+            intoId = this.nextId();
+            this.if_(this.getHasOwnProperty('l', ast.name),
+                this.assign(intoId, this.nonComputedMember('l', ast.name)));
+            this.if_(this.not(this.getHasOwnProperty('l', ast.name)) + ' && s',
+                this.assign(intoId,this.nonComputedMember('s', ast.name)));
+            return intoId;
+        case AST.ThisExpression:
+            return 's';
+        case  AST.MemberExpression:
+            intoId = this.nextId();
+            var left = this.recurse(ast.object);
+            if(ast.computed){
+                var right = this.recurse(ast.property);
+                this.if_(left, this.assign(intoId, this.computedMember(left,right)));
+            }else{
+                this.if_(left,this.assign(intoId, this.nonComputedMember(left, ast.property.name)));
+            }
+            return intoId;
+        case AST.LocalsExpression:
+            return 'l';
+        case AST.CallExpression:
+            var callee = this.recurse(ast.callee);
+            var args = _.map(ast.arguments , _.bind(function (arg) {
+                return this.recurse(arg);
+            }, this));
+            return callee + '&&' + callee + '(' + args.join(',') + ')';
     }
 };
 function Parser(lexer) {
