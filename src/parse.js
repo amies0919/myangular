@@ -7,7 +7,9 @@ function Lexer() {
 
 }
 var OPERATORS = {
-  '+':  true
+    '+':  true,
+    '!': true,
+    '-': true
 };
 Lexer.prototype.lex = function (text) {
     this.text = text;
@@ -91,9 +93,11 @@ var ESCAPES = {'n':'\n', 'f':'\f','r':'\r','t':'\t','v':'\v','\'':'\'','"':'"'};
 Lexer.prototype.readString = function (quote) {
     this.index++;
     var string = '';
+    var rawString = quote;
     var escape = false;
     while(this.index < this.text.length){
         var ch = this.text.charAt(this.index);
+        rawString += ch;
         if(escape){
             if(ch === 'u'){
                 var hex = this.text.substring(this.index+1, this.index+5);
@@ -114,7 +118,7 @@ Lexer.prototype.readString = function (quote) {
         } else if(ch === quote) {
             this.index++;
             this.tokens.push({
-                text: string,
+                text: rawString,
                 value: string
             });
             return;
@@ -291,15 +295,16 @@ AST.prototype.constants = {
     '$locals': {type: AST.LocalsExpression}
 };
 AST.prototype.unary = function () {
-  if(this.expect('+')){
-      return {
-          type: AST.UnaryExpression,
-          operator: '+',
-          argument: this.primary()
-      };
-  }else{
-      return this.primary();
-  }
+    var token;
+    if((token = this.expect('+', '!', '-'))){
+        return {
+            type: AST.UnaryExpression,
+            operator: token.text,
+            argument: this.unary()
+        };
+    }else{
+        return this.primary();
+    }
 };
 function ASTCompiler(astBuilder) {
     this.astBuilder = astBuilder;
