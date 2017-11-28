@@ -468,7 +468,7 @@ ASTCompiler.prototype.compile = function (text) {
         ) +
             this.state.body.join(' ') +'}; return fn;';
     /* jshint -W054 */
-    return new Function(
+    var fn =  new Function(
         'ensureSafeMemberName',
         'ensureSafeObject',
         'ensureSafeFunction',
@@ -476,7 +476,17 @@ ASTCompiler.prototype.compile = function (text) {
         'filter',
         fnString)(ensureSafeMemberName,ensureSafeObject,ensureSafeFunction,ifDefined,filter);
     /* jshint +W054 */
+    fn.literal = isLiteral(ast);
+    return fn;
 };
+function isLiteral(ast) {
+    return ast.body.length === 0 ||
+            ast.body.length === 1 && (
+                ast.body[0].type === AST.Literal ||
+                ast.body[0].type === AST.ArrayExpression ||
+                ast.body[0].type === AST.ObjectExpression
+        );
+}
 ASTCompiler.prototype.stringEscapeRegex = /[^ a-zA_Z0-9]/g;
 ASTCompiler.prototype.stringEscapeFn = function (c) {
     return '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4);
