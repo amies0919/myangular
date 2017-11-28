@@ -21,7 +21,9 @@ var OPERATORS = {
     '<': true,
     '>': true,
     '<=': true,
-    '>=': true
+    '>=': true,
+    '&&': true,
+    '||': true
 };
 Lexer.prototype.lex = function (text) {
     this.text = text;
@@ -184,6 +186,7 @@ AST.CallExpression = 'CallExpression';
 AST.AssignmentExpression = 'AssignmentExpression';
 AST.UnaryExpression = 'UnaryExpression';
 AST.BinaryExpression = 'BinaryExpression';
+AST.LogicalExpression = 'LogicalExpression';
 AST.prototype.ast = function (text) {
     this.tokens = this.lexer.lex(text);
     return this.program();
@@ -201,9 +204,9 @@ AST.prototype.parseArguments = function () {
   return args;
 };
 AST.prototype.assignment = function () {
-    var left = this.equality();
+    var left = this.logicalOR();
     if(this.expect('=')){
-        var right = this.equality();
+        var right = this.logicalOR();
         return {type: AST.AssignmentExpression, left: left, right: right};
     }
     return left;
@@ -374,6 +377,32 @@ AST.prototype.equality = function () {
           left: left,
           operator: token.text,
           right: this.relational()
+      };
+  }
+  return left;
+};
+AST.prototype.logicalAND = function () {
+  var left = this.equality();
+  var token;
+  while((token = this.expect('&&'))){
+      left = {
+          type: AST.LogicalExpression,
+          left: left,
+          operator: token.text,
+          right: this.equality()
+      };
+  }
+  return left;
+};
+AST.prototype.logicalOR = function () {
+  var left = this.logicalAND();
+  var token;
+  while((token = this.expect('||'))){
+      left = {
+          type: AST.LogicalExpression,
+          left: left,
+          operator: token.text,
+          right: this.logicalAND()
       };
   }
   return left;
@@ -563,6 +592,12 @@ ASTCompiler.prototype.recurse = function (ast, context,create) {
                     '(' + this.recurse(ast.right) + ')';
             }
             break;
+        case AST.LogicalExpression:
+            intoId = this.nextId();
+            this.state.body.push(this.assign(intoId, this.recurse(ast.left)));
+            this.if_(ast.operator === '&&'? intoId: this.not(intoId),
+                this.assign(intoId, this.recurse(ast.right)));
+            return intoId;
     }
 };
 function ensureSafeMemberName(name) {
