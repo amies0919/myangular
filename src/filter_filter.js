@@ -65,7 +65,7 @@ function createPredicateFn(expression, comparator) {
             actual = ('' + actual).toLowerCase();
             expected = ('' + expected).toLowerCase();
             return actual.indexOf(expected) !== -1;
-        }
+        };
     }
     return function predicateFn(item) {
         if(shouldMatchPrimitives && !_.isObject(item)){
