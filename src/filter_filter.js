@@ -17,7 +17,7 @@ function createPredicateFn(expression) {
     function deepCompare(actual,expected,comparator) {
         if(_.isObject(actual)){
             return _.some(actual, function (value) {
-                return comparator(value, expected);
+                return deepCompare(value, expected, comparator);
             });
         } else {
             return comparator(actual,expected);
