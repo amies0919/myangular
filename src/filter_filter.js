@@ -18,13 +18,13 @@ function filterFilter(){
     };
 }
 function createPredicateFn(expression) {
-    function deepCompare(actual,expected,comparator) {
+    function deepCompare(actual,expected,comparator, matchAnyProperty) {
         if(_.isString(expected) && _.startsWith(expected,'!')){
-            return !deepCompare(actual, expected.substring(1),comparator);
+            return !deepCompare(actual, expected.substring(1),comparator,matchAnyProperty);
         }
         if(_.isArray(actual)){
             return _.some(actual, function (actualItem) {
-                return deepCompare(actualItem, expected, comparator);
+                return deepCompare(actualItem, expected, comparator,matchAnyProperty);
             });
         }
         if(_.isObject(actual)){
@@ -38,10 +38,12 @@ function createPredicateFn(expression) {
                         return deepCompare(actual[expectedKey],expectedVal,comparator);
                     }
                 );
-            }else{
-                return _.some(actual, function (value) {
-                    return deepCompare(value, expected, comparator);
+            }else if(matchAnyProperty){
+                return _.some(actual, function (value, key) {
+                    return deepCompare(value, expected, comparator,matchAnyProperty);
                 });
+            } else{
+                return comparator(actual,expected);
             }
         } else {
             return comparator(actual,expected);
@@ -59,7 +61,7 @@ function createPredicateFn(expression) {
         return actual.indexOf(expected) !== -1;
     }
     return function predicateFn(item) {
-        return deepCompare(item, expression, comparator);
+        return deepCompare(item, expression, comparator,true);
     };
 }
 module.exports = filterFilter;
