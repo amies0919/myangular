@@ -5,7 +5,7 @@ function filterFilter(){
         var predicateFn;
         if(_.isFunction(filterExpr)){
             predicateFn = filterExpr;
-        }else if(_.isString(filterExpr)){
+        }else if(_.isString(filterExpr) || _.isNumber(filterExpr) || _.isBoolean(filterExpr) || _.isNull(filterExpr)){
             predicateFn = createPredicateFn(filterExpr);
         }else {
             return array;
@@ -24,8 +24,14 @@ function createPredicateFn(expression) {
         }
     }
     function comparator(actual, expected) {
-        actual = actual.toLowerCase();
-        expected = expected.toLowerCase();
+        if(_.isUndefined(actual)){
+            return false;
+        }
+        if(_.isNull(actual) || _.isNull(expected)){
+            return actual === expected;
+        }
+        actual = ('' + actual).toLowerCase();
+        expected = ('' + expected).toLowerCase();
         return actual.indexOf(expected) !== -1;
     }
     return function predicateFn(item) {
