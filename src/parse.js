@@ -458,6 +458,7 @@ function ASTCompiler(astBuilder) {
 }
 ASTCompiler.prototype.compile = function (text) {
     var ast = this.astBuilder.ast(text);
+    markConstantExpressions(ast);
     this.state = {body:[], nextId: 0, vars: [], filters: {}};
     this.recurse(ast);
     var fnString = this.filterPrefix() +
@@ -477,6 +478,7 @@ ASTCompiler.prototype.compile = function (text) {
         fnString)(ensureSafeMemberName,ensureSafeObject,ensureSafeFunction,ifDefined,filter);
     /* jshint +W054 */
     fn.literal = isLiteral(ast);
+    fn.constant = ast.constant;
     return fn;
 };
 function isLiteral(ast) {
@@ -486,6 +488,50 @@ function isLiteral(ast) {
                 ast.body[0].type === AST.ArrayExpression ||
                 ast.body[0].type === AST.ObjectExpression
         );
+}
+function markConstantExpressions(ast) {
+    var allConstants;
+    switch (ast.type){
+        case AST.ArrayExpression:
+            allConstants = true;
+            _.forEach(ast.elements , function (element) {
+                markConstantExpressions(element);
+                allConstants = allConstants && element.constant;
+            });
+            ast.constant = allConstants;
+            break;
+        case AST.ObjectExpression:
+            allConstants = true;
+            _.forEach(ast.properties , function (property) {
+                markConstantExpressions(property.value);
+                allConstants = allConstants && property.value.constant;
+            });
+            ast.constant = allConstants;
+            break;
+        case AST.Identifier:
+            ast.constant = false;
+            break;
+        case AST.Program:
+            allConstants = true;
+            _.forEach(ast.body, function (expr) {
+               markConstantExpressions(expr);
+               allConstants = allConstants && expr.constant;
+            });
+            ast.constant = allConstants;
+            break;
+        case AST.Literal:
+            ast.constant = true;
+            break;
+        case AST.ThisExpression:
+        case AST.LocalsExpression:
+            ast.constant = false;
+            break;
+        case AST.MemberExpression:
+            markConstantExpressions(ast.object);
+            ast.constant = ast.object.constant;
+            break;
+    }
+    
 }
 ASTCompiler.prototype.stringEscapeRegex = /[^ a-zA_Z0-9]/g;
 ASTCompiler.prototype.stringEscapeFn = function (c) {
