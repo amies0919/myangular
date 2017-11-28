@@ -144,4 +144,28 @@ describe('filter filter', function () {
            {name: {first: 'Jane'}, role: 'moderator'}
        ]);
     });
+    it('ignores undefined values in expectation object', function () {
+       var fn = parse('arr | filter:{name: thisIsUndefined}');
+       expect(fn({arr:[
+           {name: 'Joe', role: 'admin'},
+           {name: 'Jane', role: 'moderator'}
+       ]})).toEqual([
+           {name: 'Joe', role: 'admin'},
+           {name: 'Jane', role: 'moderator'}
+       ]);
+    });
+    it('filters with a nested object in array', function () {
+       var fn = parse('arr | filter:{users:{name:{first: "o"}}}');
+       expect(fn({arr:[
+           {users: [
+               {name: {first: 'Joe'}, role: 'admin'},
+               {name: {first: 'Jane'}, role: 'moderator'}
+           ]},
+           {users: [
+               {name: {first: 'Mary'}, role: 'admin'}
+           ]}
+       ]})).toEqual([{users: [{name: {first: 'Joe'}, role: 'admin'},
+               {name: {first: 'Jane'}, role: 'moderator'}]}
+       ]);
+    });
 });

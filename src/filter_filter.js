@@ -22,14 +22,22 @@ function createPredicateFn(expression) {
         if(_.isString(expected) && _.startsWith(expected,'!')){
             return !deepCompare(actual, expected.substring(1),comparator);
         }
+        if(_.isArray(actual)){
+            return _.some(actual, function (actualItem) {
+                return deepCompare(actualItem, expected, comparator);
+            });
+        }
         if(_.isObject(actual)){
             if(_.isObject(expected)){
                 return _.every(
                     _.toPlainObject(expected),
                     function (expectedVal,expectedKey) {
+                        if(_.isUndefined(expectedVal)){
+                            return true;
+                        }
                         return deepCompare(actual[expectedKey],expectedVal,comparator);
                     }
-                )
+                );
             }else{
                 return _.some(actual, function (value) {
                     return deepCompare(value, expected, comparator);
