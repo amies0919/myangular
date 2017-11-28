@@ -52,7 +52,9 @@ function deepCompare(actual,expected,comparator, matchAnyProperty, inWildcard) {
 }
 function createPredicateFn(expression, comparator) {
     var shouldMatchPrimitives = _.isObject(expression) && ('$' in expression);
-    if(!_.isFunction(comparator)){
+    if(comparator === true){
+        comparator = _.isEqual;
+    }else if(!_.isFunction(comparator)){
         comparator = function(actual, expected) {
             if(_.isUndefined(actual)){
                 return false;
