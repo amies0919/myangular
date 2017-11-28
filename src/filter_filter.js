@@ -35,7 +35,9 @@ function createPredicateFn(expression) {
                         if(_.isUndefined(expectedVal)){
                             return true;
                         }
-                        return deepCompare(actual[expectedKey],expectedVal,comparator);
+                        var isWildcard = (expectedKey === '$');
+                        var actualVal = isWildcard ? actual : actual[expectedKey];
+                        return deepCompare(actualVal,expectedVal,comparator,isWildcard);
                     }
                 );
             }else if(matchAnyProperty){
