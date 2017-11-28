@@ -197,7 +197,7 @@ describe('filter filter', function () {
        ]})).toEqual([
            {name: {first: 'Joe'}, role: 'admin'},
            {name: {first: 'Jane'}, role: 'moderator'}
-       ])
+       ]);
     });
     it('filters wildcard properties scope to parent', function () {
        var fn = parse('arr | filter: {name: {$: "o"}}');
@@ -209,5 +209,19 @@ describe('filter filter', function () {
            {name: {first: 'Joe',last: 'Fox'}, role: 'admin'},
            {name: {first: 'Mary',last: 'Brown'}, role: 'admin'}
        ]);
+    });
+    it('filters primitives with a wildcard property', function () {
+       var fn = parse('arr | filter: {$: "o"}');
+       expect(fn({arr: ['Joe', 'Jane', 'Mary']})).toEqual(['Joe']);
+    });
+    it('filters with a nested wildcard property', function () {
+       var fn = parse('arr | filter: {$: {$: "o"}}');
+        expect(fn({arr: [
+            {name: {first: 'Joe'}, role: 'admin'},
+            {name: {first: 'Jane'}, role: 'moderator'},
+            {name: {first: 'Mary'}, role: 'admin'}
+        ]})).toEqual([
+            {name: {first: 'Joe'}, role: 'admin'}
+        ]);
     });
 });
