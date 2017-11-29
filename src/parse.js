@@ -879,6 +879,31 @@ function oneTimeLiteralWatchDelegate(scope, listenerFn, valueEq, watchFn) {
     }, valueEq);
     return unwatch;
 }
+function inputsWatchDelegate(scope, listenerFn, valueEq, watchFn) {
+    var inputExpressions = watchFn.inputs;
+    var oldValues = _.times(inputExpressions.length, _.constant(function () {
+
+    }));
+    var lastResult;
+    return scope.$watch(function () {
+        var changed = false;
+        _.forEach(inputExpressions, function (inputExpr, i) {
+            var newValue = inputExpr(scope);
+            if(changed || !expressionInputDirtyCheck(newValue, oldValues[i])){
+                changed = true;
+                oldValues[i] = newValue;
+            }
+        });
+        if(changed){
+            lastResult = watchFn(scope);
+        }
+        return lastResult;
+    }, listenerFn, valueEq);
+    
+}
+function expressionInputDirtyCheck(newValue, oldValue) {
+    return newValue === oldValue || (typeof newValue === 'number' && typeof oldValue === 'number' && isNaN(newValue) && isNaN(oldValue));
+}
 function parse(expr) {
     switch (typeof expr){
         case 'string':
@@ -894,6 +919,8 @@ function parse(expr) {
                 parseFn.$$watchDelegate = constantWatchDelegate;
             } else if (oneTime){
                 parseFn.$$watchDelegate = parseFn.literal ? oneTimeLiteralWatchDelegate : oneTimeWatchDelegate;
+            } else if (parseFn.inputs){
+                parseFn.$$watchDelegate = inputsWatchDelegate;
             }
             return parseFn;
         case 'function':
