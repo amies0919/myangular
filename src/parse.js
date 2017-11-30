@@ -456,18 +456,60 @@ AST.prototype.filter = function () {
 function ASTCompiler(astBuilder) {
     this.astBuilder = astBuilder;
 }
+function getInputs(ast) {
+    if(ast.length !==1){
+        return;
+    }
+    var candidate = ast[0].toWatch;
+    if(candidate.length !== 1 || candidate[0] !== ast[0]){
+        return candidate;
+    }
+}
+ASTCompiler.prototype.watchFns = function () {
+    var result = [];
+    _.forEach(this.state.inputs, _.bind(function (inputName) {
+        result.push('var ', inputName, '=function(s) {',
+            (this.state[inputName].vars.length ?
+                    'var ' + this.state[inputName].vars.join(',') + ';' :
+                    ''
+            ),
+            this.state[inputName].body.join(''),
+            '};');
+    }, this));
+    if (result.length) {
+        result.push('fn.inputs = [', this.state.inputs.join(','), '];');
+    }
+    return result.join('');
+};
 ASTCompiler.prototype.compile = function (text) {
     var ast = this.astBuilder.ast(text);
     markConstantAndWatchExpressions(ast);
-    this.state = {body:[], nextId: 0, vars: [], filters: {}};
+    this.state = {
+        nextId: 0,
+        fn:{ body:[],vars: []},
+        filters: {},
+        inputs: []
+    };
+    this.stage = 'inputs';
+    _.forEach(getInputs(ast.body), _.bind(function (input, idx) {
+        var inputKey = 'fn' + idx;
+        this.state[inputKey] = {body: [], vars: []};
+        this.state.computing = inputKey;
+        this.state[inputKey].body.push('return ' + this.recurse(input) + ';');
+        this.state.inputs.push(inputKey);
+    },this));
+    this.stage = 'main';
+    this.state.computing = 'fn';
     this.recurse(ast);
     var fnString = this.filterPrefix() +
         'var fn = function(s,l){' +
-        (this.state.vars.length?
-        'var ' + this.state.vars.join(',') + ';':
+        (this.state.fn.vars.length?
+        'var ' + this.state.fn.vars.join(',') + ';':
         ''
         ) +
-            this.state.body.join(' ') +'}; return fn;';
+            this.state.fn.body.join(' ') +'};'+
+            this.watchFns()+
+        ' return fn;';
     /* jshint -W054 */
     var fn =  new Function(
         'ensureSafeMemberName',
@@ -615,7 +657,7 @@ ASTCompiler.prototype.computedMember = function (left, right) {
   return '(' + left + ')[' + right +']';
 };
 ASTCompiler.prototype.if_ = function (test, consequent) {
-  this.state.body.push('if(', test, '){',consequent,'}');
+  this.state[this.state.computing].body.push('if(', test, '){',consequent,'}');
 };
 ASTCompiler.prototype.assign = function (id, value) {
   return id + '=' + value + ';';
@@ -623,7 +665,7 @@ ASTCompiler.prototype.assign = function (id, value) {
 ASTCompiler.prototype.nextId = function (skip) {
   var id = 'v' + (this.state.nextId++);
   if(!skip){
-      this.state.vars.push(id);
+      this.state[this.state.computing].vars.push(id);
   }
   return id;
 };
@@ -634,13 +676,13 @@ ASTCompiler.prototype.getHasOwnProperty = function (object, property) {
     return object + '&&(' + this.escape(property) + ' in ' + object + ')';
 };
 ASTCompiler.prototype.addEnsureSafeMemberName = function (expr) {
-    this.state.body.push('ensureSafeMemberName('+ expr +');');
+    this.state[this.state.computing].body.push('ensureSafeMemberName('+ expr +');');
 };
 ASTCompiler.prototype.addEnsureSafeObject = function (expr) {
-    this.state.body.push('ensureSafeObject('+expr+');');
+    this.state[this.state.computing].body.push('ensureSafeObject('+expr+');');
 };
 ASTCompiler.prototype.addEnsureSafeFunction = function (expr) {
-    this.state.body.push('ensureSafeFunction('+expr+');');
+    this.state[this.state.computing].body.push('ensureSafeFunction('+expr+');');
 };
 ASTCompiler.prototype.ifDefined = function (value, defaultValue) {
   return 'ifDefined('+ value + ',' + this.escape(defaultValue) +')';
@@ -650,9 +692,9 @@ ASTCompiler.prototype.recurse = function (ast, context,create) {
     switch (ast.type) {
         case AST.Program:
             _.forEach(_.initial(ast.body), _.bind(function (stmt) {
-                this.state.body.push(this.recurse(stmt), ';');
+                this.state[this.state.computing].body.push(this.recurse(stmt), ';');
             }, this));
-            this.state.body.push('return', this.recurse(_.last(ast.body)),';');
+            this.state[this.state.computing].body.push('return', this.recurse(_.last(ast.body)),';');
             break;
         case AST.Literal:
             return this.escape(ast.value);
@@ -672,17 +714,23 @@ ASTCompiler.prototype.recurse = function (ast, context,create) {
         case AST.Identifier:
             ensureSafeMemberName(ast.name);
             intoId = this.nextId();
-            this.if_(this.getHasOwnProperty('l', ast.name),
+            var localsCheck;
+            if (this.stage === 'inputs') {
+                localsCheck = 'false';
+            } else {
+                localsCheck = this.getHasOwnProperty('l', ast.name);
+            }
+            this.if_(localsCheck,
                 this.assign(intoId, this.nonComputedMember('l', ast.name)));
             if(create){
-                this.if_(this.not(this.getHasOwnProperty('l',ast.name)) +
+                this.if_(this.not(localsCheck) +
                     ' && s && ' + this.not(this.getHasOwnProperty('s', ast.name)),
                 this.assign(this.nonComputedMember('s', ast.name), '{}'));
             }
-            this.if_(this.not(this.getHasOwnProperty('l', ast.name)) + ' && s',
+            this.if_(this.not(localsCheck) + ' && s',
                 this.assign(intoId,this.nonComputedMember('s', ast.name)));
             if(context){
-                context.context = this.getHasOwnProperty('l', ast.name) + '?l:s';
+                context.context = localsCheck + '?l:s';
                 context.name = ast.name;
                 context.computed = false;
             }
@@ -776,14 +824,14 @@ ASTCompiler.prototype.recurse = function (ast, context,create) {
             break;
         case AST.LogicalExpression:
             intoId = this.nextId();
-            this.state.body.push(this.assign(intoId, this.recurse(ast.left)));
+            this.state[this.state.computing].body.push(this.assign(intoId, this.recurse(ast.left)));
             this.if_(ast.operator === '&&'? intoId: this.not(intoId),
                 this.assign(intoId, this.recurse(ast.right)));
             return intoId;
         case AST.ConditionalExpression:
             intoId = this.nextId();
             var testId = this.nextId();
-            this.state.body.push(this.assign(testId, this.recurse(ast.test)));
+            this.state[this.state.computing].body.push(this.assign(testId, this.recurse(ast.test)));
             this.if_(testId, this.assign(intoId, this.recurse(ast.consequent)));
             this.if_(this.not(testId), this.assign(intoId, this.recurse(ast.alternate)));
             return intoId;
