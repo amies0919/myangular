@@ -458,7 +458,7 @@ function ASTCompiler(astBuilder) {
 }
 ASTCompiler.prototype.compile = function (text) {
     var ast = this.astBuilder.ast(text);
-    markConstantExpressions(ast);
+    markConstantAndWatchExpressions(ast);
     this.state = {body:[], nextId: 0, vars: [], filters: {}};
     this.recurse(ast);
     var fnString = this.filterPrefix() +
@@ -489,79 +489,108 @@ function isLiteral(ast) {
                 ast.body[0].type === AST.ObjectExpression
         );
 }
-function markConstantExpressions(ast) {
+function markConstantAndWatchExpressions(ast) {
     var allConstants;
+    var argsToWatch;
     switch (ast.type){
         case AST.ArrayExpression:
             allConstants = true;
+            argsToWatch = [];
             _.forEach(ast.elements , function (element) {
-                markConstantExpressions(element);
+                markConstantAndWatchExpressions(element);
                 allConstants = allConstants && element.constant;
+                if(!element.constant){
+                    argsToWatch.push.apply(argsToWatch,element.toWatch);
+                }
             });
             ast.constant = allConstants;
+            ast.toWatch = argsToWatch;
             break;
         case AST.ObjectExpression:
             allConstants = true;
+            argsToWatch = [];
             _.forEach(ast.properties , function (property) {
-                markConstantExpressions(property.value);
+                markConstantAndWatchExpressions(property.value);
                 allConstants = allConstants && property.value.constant;
+                if(!property.value.constant){
+                    argsToWatch.push.apply(argsToWatch, property.value.toWatch);
+                }
             });
             ast.constant = allConstants;
+            ast.toWatch = argsToWatch;
             break;
         case AST.Identifier:
             ast.constant = false;
+            ast.toWatch = [ast];
             break;
         case AST.Program:
             allConstants = true;
             _.forEach(ast.body, function (expr) {
-               markConstantExpressions(expr);
+                markConstantAndWatchExpressions(expr);
                allConstants = allConstants && expr.constant;
             });
             ast.constant = allConstants;
             break;
         case AST.Literal:
             ast.constant = true;
+            ast.toWatch = [];//for literals, there is nothing to watch-simple literals never change
             break;
         case AST.ThisExpression:
         case AST.LocalsExpression:
             ast.constant = false;
+            ast.toWatch = [];
             break;
         case AST.MemberExpression:
-            markConstantExpressions(ast.object);
+            markConstantAndWatchExpressions(ast.object);
             if(ast.computed){
-                markConstantExpressions(ast.property);
+                markConstantAndWatchExpressions(ast.property);
             }
             ast.constant = ast.object.constant && (!ast.computed || ast.property.constant);
+            ast.toWatch = [ast];
             break;
         case  AST.CallExpression:
             allConstants = ast.filter ? true: false;
+            argsToWatch = [];
             _.forEach(ast.arguments, function (arg) {
-                markConstantExpressions(arg);
+                markConstantAndWatchExpressions(arg);
                 allConstants = allConstants && arg.constant;
+                if(!arg.constant){
+                    argsToWatch.push.apply(argsToWatch, arg.toWatch);
+                }
             });
             ast.constant = allConstants;
+            ast.toWatch = ast.filter ? argsToWatch : [ast];
             break;
         case AST.AssignmentExpression:
-            markConstantExpressions(ast.left);
-            markConstantExpressions(ast.right);
+            markConstantAndWatchExpressions(ast.left);
+            markConstantAndWatchExpressions(ast.right);
             ast.constant = ast.left.constant && ast.right.constant;
+            ast.toWatch = [ast];
             break;
         case AST.UnaryExpression:
-            markConstantExpressions(ast.argument);
+            markConstantAndWatchExpressions(ast.argument);
             ast.constant = ast.argument.constant;
+            ast.toWatch = ast.argument.toWatch;
             break;
         case AST.BinaryExpression:
-        case AST.LogicalExpression:
-            markConstantExpressions(ast.left);
-            markConstantExpressions(ast.right);
+            markConstantAndWatchExpressions(ast.left);
+            markConstantAndWatchExpressions(ast.right);
             ast.constant = ast.left.constant && ast.right.constant;
+            ast.toWatch = ast.left.toWatch.concat(ast.right.toWatch);
+            break;
+        case AST.LogicalExpression:
+            markConstantAndWatchExpressions(ast.left);
+            markConstantAndWatchExpressions(ast.right);
+            ast.constant = ast.left.constant && ast.right.constant;
+            ast.toWatch = [ast];
             break;
         case AST.ConditionalExpression:
-            markConstantExpressions(ast.test);
-            markConstantExpressions(ast.consequent);
-            markConstantExpressions(ast.alternate);
+            markConstantAndWatchExpressions(ast.test);
+            markConstantAndWatchExpressions(ast.consequent);
+            markConstantAndWatchExpressions(ast.alternate);
             ast.constant =
                 ast.test.constant && ast.consequent.constant && ast.alternate.constant;
+            ast.toWatch = [ast];
             break;
     }
     
@@ -902,7 +931,9 @@ function inputsWatchDelegate(scope, listenerFn, valueEq, watchFn) {
     
 }
 function expressionInputDirtyCheck(newValue, oldValue) {
-    return newValue === oldValue || (typeof newValue === 'number' && typeof oldValue === 'number' && isNaN(newValue) && isNaN(oldValue));
+    return newValue === oldValue ||
+        (typeof newValue === 'number' && typeof oldValue === 'number' &&
+        isNaN(newValue) && isNaN(oldValue));
 }
 function parse(expr) {
     switch (typeof expr){
