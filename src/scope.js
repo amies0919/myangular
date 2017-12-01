@@ -3,7 +3,7 @@ var _ = require('lodash');
 var parse = require('./parse');
 function Scope(){
     this.$$watchers = [];
-    this.lastDirtyWatch = null;
+    this.$$lastDirtyWatch = null;
     this.$$asyncQueue = [];
     this.$$applyAsyncQueue = [];
     this.$$applyAsyncId = null;
