@@ -12,11 +12,20 @@ function createInjector(modulesToLoad) {
             cache[key] = value;
         }
     };
+    var FN_ARG = /^\s*(\S+)\s*$/;
+    var FN_ARGS = /^function\s*[^\(]*\(\s*([^\)]*)\)/m;
     function annotate(fn) {
         if(_.isArray(fn)){
             return fn.slice(0, fn.length -1);
-        } else {
+        } else if(fn.$inject){
             return fn.$inject;
+        } else if(!fn.length){
+            return [];
+        } else {
+            var argDeclaration = fn.toString().match(FN_ARGS);
+            return _.map(argDeclaration[1].split(','), function (argName) {
+                return argName.match(FN_ARG)[1];
+            });
         }
     }
     function invoke(fn, self, locals) {
