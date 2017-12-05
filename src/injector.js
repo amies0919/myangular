@@ -35,6 +35,12 @@ function createInjector(modulesToLoad, strictDi) {
             });
         }
     }
+    function instantiate(Type, locals) {
+        var UnwrappedType = _.isArray(Type)?_.last(Type) : Type;
+        var instance = Object.create(UnwrappedType.prototype);
+        invoke(Type, instance, locals);
+        return instance;
+    }
     function invoke(fn, self, locals) {
         var args = _.map(annotate(fn), function (token) {
             if(_.isString(token)) {
@@ -68,7 +74,8 @@ function createInjector(modulesToLoad, strictDi) {
             return cache[key];
         },
         annotate: annotate,
-        invoke: invoke
+        invoke: invoke,
+        instantiate: instantiate
     };
 }
 module.exports = createInjector;
