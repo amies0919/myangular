@@ -1,9 +1,10 @@
 'use strict';
 var _ = require('lodash');
 
-function createInjector(modulesToLoad) {
+function createInjector(modulesToLoad, strictDi) {
     var cache = {};
     var loadedModules = {};
+    strictDi = (strictDi === true);
     var $provide = {
         constant: function (key, value) {
             if(key === 'hasOwnProperty'){
@@ -23,6 +24,10 @@ function createInjector(modulesToLoad) {
         } else if(!fn.length){
             return [];
         } else {
+            if(strictDi){
+                throw 'fn is not using explicit annotation and' +
+                    'cannot be invoked in strict mode';
+            }
             var source = fn.toString().replace(STRIP_COMMENTS, '');
             var argDeclaration = source.match(FN_ARGS);
             return _.map(argDeclaration[1].split(','), function (argName) {
