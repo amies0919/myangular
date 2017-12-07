@@ -11,6 +11,9 @@ function createInjector(modulesToLoad, strictDi) {
                 throw 'hasOwnProperty is not a valid constant name!';
             }
             cache[key] = value;
+        },
+        provider: function (key, provider) {
+            cache[key] = provider.$get();
         }
     };
     var FN_ARG = /^\s*(_?)(\S+)\1\s*$/;
