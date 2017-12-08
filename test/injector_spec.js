@@ -304,5 +304,13 @@ describe('injector', function () {
            var injector = createInjector(['myModule']);
            expect(injector.get('b')).toBe(3);
         });
+        it('instantitates a dependency only once', function () {
+           var module = window.angular.module('myModule', []);
+           module.provider('a', {$get: function () {
+               return {};
+           }});
+           var injector = createInjector(['myModule']);
+           expect(injector.get('a')).toBe(injector.get('a'));
+        });
     });
 });

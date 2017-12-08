@@ -44,7 +44,8 @@ function createInjector(modulesToLoad, strictDi) {
             return instanceCache[name];
         }else if(providerCache.hasOwnProperty(name + 'Provider')){
             var provider = providerCache[name + 'Provider'];
-            return invoke(provider.$get, provider);
+            var instance = instanceCache[name] = invoke(provider.$get);
+            return instance;
         }
     }
     function instantiate(Type, locals) {
