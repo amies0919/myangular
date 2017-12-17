@@ -583,5 +583,17 @@ describe('injector', function () {
            var injector = createInjector(['myModule']);
            expect(injector.get('a')).toBe(42);
         });
+        it('supports returning a run block from a module function', function () {
+           var result;
+           var functionModule = function ($provide) {
+                $provide.constant('a',42);
+                return function (a) {
+                    result = a;
+                };
+           };
+           window.angular.module('myModule',[functionModule]);
+           var injector = createInjector(['myModule']);
+           expect(result).toBe(42);
+        });
     });
 });

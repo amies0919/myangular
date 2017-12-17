@@ -112,7 +112,7 @@ function createInjector(modulesToLoad, strictDi) {
             var service = providerInjector.get(invokeArgs[0]);
             var method = invokeArgs[1];
             var args = invokeArgs[2];
-            service[method].apply(service, args)
+            service[method].apply(service, args);
         });
     }
     var runBlocks = [];
@@ -120,19 +120,20 @@ function createInjector(modulesToLoad, strictDi) {
         if(_.isString(module)) {
             if (!loadedModules.hasOwnProperty(module)){
                 loadedModules[module] = true;
-                var module = window.angular.module(module);
+                module = window.angular.module(module);
                 _.forEach(module.requires, loadModule);
                 runInvokeQueue(module._invokeQueue);
                 runInvokeQueue(module._configBlocks);
                 runBlocks = runBlocks.concat(module._runBlocks);
             }
         }else if(_.isFunction(module) || _.isArray(module)){
-            providerInjector.invoke(module);
+            runBlocks.push(providerInjector.invoke(module));
         }
+
     });
-    _.forEach(runBlocks, function (runBlock) {
+    _.forEach(_.compact(runBlocks), function (runBlock) {
         instanceInjector.invoke(runBlock);
-    })
+    });
     return instanceInjector;
 }
 module.exports = createInjector;
