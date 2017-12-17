@@ -595,5 +595,14 @@ describe('injector', function () {
            var injector = createInjector(['myModule']);
            expect(result).toBe(42);
         });
+        it('only loads function module once', function () {
+            var loadedTimes = 0;
+            var functionModule = function () {
+                loadedTimes++;
+            };
+            window.angular.module('myModule',[functionModule, functionModule]);
+            createInjector(['myModule']);
+            expect(loadedTimes).toBe(1);
+        });
     });
 });
