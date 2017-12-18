@@ -658,7 +658,7 @@ describe('injector', function () {
 
            });
            expect(function () {
-               createInjector(['myModule'])
+               createInjector(['myModule']);
            }).toThrow();
         });
         it('allows an undefined value', function () {
@@ -666,6 +666,35 @@ describe('injector', function () {
            module.value('a',undefined);
            var injector = createInjector(['myModule']);
             expect(injector.get('a')).toBeUndefined();
+        });
+        it('allows registering a service', function () {
+            var module = window.angular.module('myModule', []);
+            module.service('aService', function MyService() {
+                this.getValue = function () {
+                    return 42;
+                };
+            });
+            var injector = createInjector(['myModule']);
+            expect(injector.get('aService').getValue()).toBe(42);
+        });
+        it('injects service constructors with instances', function () {
+            var module = window.angular.module('myModule', []);
+            module.value('a',42);
+            module.service('aService', function MyService(a) {
+                this.getValue = function () {
+                    return a;
+                };
+            });
+            var injector = createInjector(['myModule']);
+            expect(injector.get('aService').getValue()).toBe(42);
+        });
+        it('only instantiates services once', function () {
+            var module = window.angular.module('myModule', []);
+            module.service('aService', function MyService() {
+
+            });
+            var injector = createInjector(['myModule']);
+            expect(injector.get('aService')).toEqual(injector.get('aService'));
         });
     });
 });
