@@ -1,8 +1,11 @@
 'use strict';
 function $QProvider() {
     this.$get = function () {
-        function Deferred(){
+        function Promise() {
             
+        }
+        function Deferred(){
+            this.promise = new Promise();
         }
         function defer() {
             return new Deferred();
