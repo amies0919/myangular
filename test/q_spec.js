@@ -15,4 +15,17 @@ describe('$q', function () {
         var d = $q.defer();
         expect(d.promise).toBeDefined();
     });
+    it('can resolve a promise', function (done) {
+        var defferred = $q.defer();
+        var promise = defferred.promise;
+
+        var promiseSpy = jasmine.createSpy();
+        promise.then(promiseSpy);
+
+        defferred.resolve('a-ok');
+        setTimeout(function () {
+           expect(promiseSpy).toHaveBeenCalledWith('a-ok');
+           done();
+        },1);
+    });
 });
