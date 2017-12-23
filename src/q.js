@@ -15,6 +15,13 @@ function $QProvider() {
         Promise.prototype.catch = function (onrejected) {
             return this.then(null, onrejected);
         };
+        Promise.prototype.finally = function (callback) {
+            return this.then(function () {
+                callback();
+            },function () {
+                callback();
+            });
+        };
         function Deferred(){
             this.promise = new Promise();
         }
