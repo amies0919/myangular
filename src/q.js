@@ -6,6 +6,9 @@ function $QProvider() {
         }
         Promise.prototype.then = function (onfulfilled) {
             this.$$state.pending = onfulfilled;
+            if(this.$$state.status > 0){
+                processQueue(this.$$state);
+            }
         };
         function Deferred(){
             this.promise = new Promise();
