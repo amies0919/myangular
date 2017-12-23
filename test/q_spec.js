@@ -475,5 +475,14 @@ describe('$q', function () {
         expect(progressSpy).toHaveBeenCalledWith('working...');
 
     });
+    it('can make an immediately rejected promise', function () {
+       var fulfilledSpy = jasmine.createSpy();
+       var rejectSpy = jasmine.createSpy();
+       var promise = $q.reject('fail');
+       promise.then(fulfilledSpy, rejectSpy);
+       $rootScope.$apply();
+       expect(fulfilledSpy).not.toHaveBeenCalled();
+       expect(rejectSpy).toHaveBeenCalledWith('fail');
+    });
 
 });
