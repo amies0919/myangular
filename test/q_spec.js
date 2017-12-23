@@ -243,4 +243,25 @@ describe('$q', function () {
         $rootScope.$apply();
         expect(fulfillSpy).toHaveBeenCalledWith(42);
     });
+    it('rejects chained promise when handler throws', function () {
+        var d = $q.defer();
+        var rejectSpy = jasmine.createSpy();
+        d.promise.then(function () {
+            throw 'fail';
+        }).catch(rejectSpy);
+        d.resolve(42);
+        $rootScope.$apply();
+        expect(rejectSpy).toHaveBeenCalledWith('fail');
+    });
+    it('does not reject current promise when handler throws', function () {
+       var d = $q.defer();
+       var rejectSpy = jasmine.createSpy();
+       d.promise.then(function () {
+           throw 'fail';
+       });
+       d.promise.catch(rejectSpy);
+       d.resolve(42);
+       $rootScope.$apply();
+       expect(rejectSpy).not.toHaveBeenCalled();
+    });
 });
