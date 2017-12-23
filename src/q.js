@@ -17,29 +17,30 @@ function $QProvider() {
         Promise.prototype.catch = function (onrejected) {
             return this.then(null, onrejected);
         };
+        function makePromise(value, resolved) {
+            var d = new Deferred();
+            if(resolved){
+                d.resolve(value);
+            }else{
+                d.reject(value);
+            }
+            return d.promise;
+        }
+        function handleFinallyCallback(callback, value, resolved) {
+            var callbackValue = callback();
+            if(callbackValue && callbackValue.then){
+                return callbackValue.then(function () {
+                    return makePromise(value,resolved);
+                });
+            }else {
+                return makePromise(value,resolved);
+            }
+        }
         Promise.prototype.finally = function (callback) {
             return this.then(function (value) {
-                var callbackValue = callback();
-                if(callbackValue && callbackValue.then){
-                    return callbackValue.then(function () {
-                        return value;
-                    });
-                }else {
-                    return value;
-                }
+                return handleFinallyCallback(callback, value, true);
             },function (rejection) {
-                var callbackValue = callback();
-                if(callbackValue && callbackValue.then){
-                    return callbackValue.then(function () {
-                        var d = new Deferred();
-                        d.reject(rejection);
-                        return d.promise;
-                    });
-                } else {
-                    var d = new Deferred();
-                    d.reject(rejection);
-                    return d.promise;
-                }
+                return handleFinallyCallback(callback, rejection, false);
             });
         };
         function Deferred(){
