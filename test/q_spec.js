@@ -87,5 +87,33 @@ describe('$q', function () {
        $rootScope.$apply();
        expect(promiseSpy).toHaveBeenCalledWith(42);
     });
+    it('may have multiple callbacks', function () {
+       var d = $q.defer();
+       var firstPromise = jasmine.createSpy();
+       var secondPromise = jasmine.createSpy();
+       d.promise.then(firstPromise);
+       d.promise.then(secondPromise);
+
+       d.resolve(42);
+       $rootScope.$apply();
+       expect(firstPromise).toHaveBeenCalledWith(42);
+       expect(secondPromise).toHaveBeenCalledWith(42);
+    });
+
+    it('invokes each callback once', function () {
+       var d = $q.defer();
+       var firstSpy = jasmine.createSpy();
+       var secondSpy = jasmine.createSpy();
+       d.promise.then(firstSpy);
+       d.resolve(42);
+       $rootScope.$apply();
+       expect(firstSpy.calls.count()).toBe(1);
+       expect(secondSpy.calls.count()).toBe(0);
+       d.promise.then(secondSpy);
+       $rootScope.$apply();
+        expect(firstSpy.calls.count()).toBe(1);
+        expect(secondSpy.calls.count()).toBe(1);
+
+    });
 
 });

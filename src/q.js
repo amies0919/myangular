@@ -1,11 +1,13 @@
 'use strict';
+var _ = require('lodash');
 function $QProvider() {
     this.$get = ['$rootScope',function ($rootScope) {
         function Promise() {
             this.$$state = {};
         }
         Promise.prototype.then = function (onfulfilled) {
-            this.$$state.pending = onfulfilled;
+            this.$$state.pending = this.$$state.pending || [];
+            this.$$state.pending.push(onfulfilled);
             if(this.$$state.status > 0){
                 processQueue(this.$$state);
             }
@@ -27,7 +29,11 @@ function $QProvider() {
             });
         }
         function processQueue(state) {
-            state.pending(state.value);
+            var pending = state.pending;
+            state.pending = undefined;
+            _.forEach(pending,function (onfulfilled) {
+                onfulfilled(state.value);
+            });
         }
         function defer() {
             return new Deferred();
