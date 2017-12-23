@@ -484,5 +484,29 @@ describe('$q', function () {
        expect(fulfilledSpy).not.toHaveBeenCalled();
        expect(rejectSpy).toHaveBeenCalledWith('fail');
     });
+    it('can make an immediately resolved promise', function () {
+       var fulfilledSpy = jasmine.createSpy();
+       var rejectedSpy = jasmine.createSpy();
+       var promise = $q.when('ok');
+       promise.then(fulfilledSpy, rejectedSpy);
+       $rootScope.$apply();
+       expect(fulfilledSpy).toHaveBeenCalledWith('ok');
+       expect(rejectedSpy).not.toHaveBeenCalled();
+    });
+    it('can wrap a foreign promise', function () {
+       var fulfilledSpy = jasmine.createSpy();
+       var rejectedSpy = jasmine.createSpy();
+       var promise = $q.when({
+           then: function (handler) {
+               $rootScope.$evalAsync(function () {
+                   handler('ok');
+               });
+           }
+       });
+       promise.then(fulfilledSpy, rejectedSpy);
+       $rootScope.$apply();
+       expect(fulfilledSpy).toHaveBeenCalledWith('ok');
+       expect(rejectedSpy).not.toHaveBeenCalled();
+    });
 
 });

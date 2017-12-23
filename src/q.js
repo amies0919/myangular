@@ -117,10 +117,16 @@ function $QProvider() {
             d.reject(rejection);
             return d.promise;
         }
+        function when(value) {
+            var d = defer();
+            d.resolve(value);
+            return d.promise;
+        }
 
         return {
             defer:defer,
-            reject: reject
+            reject: reject,
+            when: when
         };
         
     }];
