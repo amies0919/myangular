@@ -1,7 +1,6 @@
 'use strict';
 var _ = require('lodash');
-function $QProvider() {
-    this.$get = ['$rootScope',function ($rootScope) {
+function qFactory(callLater) {
         function Promise() {
             this.$$state = {};
         }
@@ -72,7 +71,7 @@ function $QProvider() {
         Deferred.prototype.notify = function (progress) {
             var pending = this.promise.$$state.pending;
             if(pending && pending.length && !this.promise.$$state.status){
-                $rootScope.$evalAsync(function () {
+                callLater(function () {
                     _.forEach(pending, function (handlers) {
                         var deferred = handlers[0];
                         var progressBack = handlers[3];
@@ -86,7 +85,7 @@ function $QProvider() {
             }
         };
         function scheduleProcessQueue(state) {
-            $rootScope.$evalAsync(function () {
+            callLater(function () {
                processQueue(state);
             });
         }
@@ -160,7 +159,23 @@ function $QProvider() {
             resolve: when,
             all: all
         });
-        
+}
+function $QProvider() {
+    this.$get = ['$rootScope', function ($rootScope) {
+        return qFactory(function (callback) {
+            $rootScope.$evalAsync(callback);
+        });
     }];
 }
-module.exports = $QProvider;
+function $$QProvider() {
+    this.$get = function () {
+        return qFactory(function (callback) {
+            setTimeout(callback,0);
+        });
+    };
+    
+}
+module.exports = {
+    $QProvider: $QProvider,
+    $$Qprovider: $$QProvider
+    };
