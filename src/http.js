@@ -1,8 +1,12 @@
 'use strict';
+var _ = require('lodash');
 function $HttpProvider() {
     this.$get = ['$httpBackend','$q', '$rootScope', function ($httpBackend, $q, $rootScope) {
-        return function $http(config){
+        return function $http(requestConfig){
             var deferred = $q.defer();
+            var config = _.extend({
+                method: 'GET'
+            }, requestConfig);
             function done(status, response, statusText) {
                 status = Math.max(status, 0);
                 deferred[isSuccess(status)?'resolve':'reject']({
