@@ -647,7 +647,7 @@ describe('$q', function () {
             $rootScope.$watch(watchSpy);
             jasmine.clock().tick(1);
             expect(watchSpy).not.toHaveBeenCalled();
-        })
+        });
     });
 
 });
