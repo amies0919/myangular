@@ -20,7 +20,34 @@ function $HttpParamSerializerProvider() {
 
             });
             return parts.join('&');
-        }
+        };
+    };
+}
+function $HttpParamSerializerJQLikeProvider() {
+    this.$get = function () {
+        return function(params) {
+            var parts = [];
+            _.forEach(params, function (value, key) {
+                if(_.isNull(value) || _.isUndefined(value)){
+                    return;
+                }
+                if(_.isArray(value)){
+                    _.forEach(value, function (v) {
+                       parts.push(encodeURIComponent(key+'[]')+ '=' +encodeURIComponent(v));
+                    });
+                }else if(_.isObject(value) && !_.isDate(value)){
+                    _.forEach(value, function (v, k) {
+                       parts.push(
+                           encodeURIComponent(key + '['+k+']')+'='+encodeURIComponent(v)
+                       );
+                    });
+                }else{
+
+                    parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+                }
+            });
+            return parts.join('&');
+        };
     };
 }
 function $HttpProvider() {
@@ -230,5 +257,6 @@ function $HttpProvider() {
 }
 module.exports = {
     $HttpProvider: $HttpProvider,
-    $HttpParamSerializerProvider: $HttpParamSerializerProvider
+    $HttpParamSerializerProvider: $HttpParamSerializerProvider,
+    $HttpParamSerializerJQLikeProvider: $HttpParamSerializerJQLikeProvider
 };
