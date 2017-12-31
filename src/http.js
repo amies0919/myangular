@@ -15,8 +15,42 @@ function $HttpProvider() {
             patch: {
                 'Content-Type': 'application/json;charset=utf-8'
             }
-        }
+        },
+        transformRequest: [function (data) {
+            if(_.isObject(data) && !isBlob(data) && !isFile(data) && !isFormData(data)){
+                return JSON.stringify(data);
+            }else{
+                return data;
+            }
+        }],
+        transformResponse: [defaultHttpResponseTransform]
     };
+    function defaultHttpResponseTransform(data, headers) {
+        if(_.isString(data)){
+            var contentType = headers('Content-Type');
+            if(contentType && contentType.indexOf('application/json') === 0 || isJsonLike(data)){
+                return JSON.parse(data);
+            }
+        }
+        return data;
+        
+    }
+    function isJsonLike(data) {
+        if(data.match(/^\{(?!\{)/)){
+            return data.match(/\}$/);
+        }else if(data.match(/^\[/)){
+            return data.match(/\]$/);
+        }
+    }
+    function isBlob(object) {
+        return object.toString() === '[object Blob]';
+    }
+    function isFile(object) {
+        return object.toString() === '[object File]';
+    }
+    function isFormData(object) {
+        return object.toString() === '[object FormData]';
+    }
     this.$get = ['$httpBackend','$q', '$rootScope', function ($httpBackend, $q, $rootScope) {
         function isSuccess(status) {
             return status>=200 && status<300;
@@ -139,7 +173,7 @@ function $HttpProvider() {
             }
             function transformResponse(response) {
                 if(response.data){
-                    response.data = transformData(response.data, response.headers,response.status, config.transformResponse)
+                    response.data = transformData(response.data, response.headers,response.status, config.transformResponse);
                 }
                 if(isSuccess(response.status)) {
                     return response;
