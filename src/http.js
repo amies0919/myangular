@@ -27,25 +27,24 @@ function $HttpParamSerializerJQLikeProvider() {
     this.$get = function () {
         return function(params) {
             var parts = [];
-            _.forEach(params, function (value, key) {
+            function serialize(value, prefix, topLevel) {
                 if(_.isNull(value) || _.isUndefined(value)){
                     return;
                 }
                 if(_.isArray(value)){
-                    _.forEach(value, function (v) {
-                       parts.push(encodeURIComponent(key+'[]')+ '=' +encodeURIComponent(v));
+                    _.forEach(value, function (v,i) {
+                        serialize(v,prefix+'['+(_.isObject(v)?i:'')+']');
                     });
                 }else if(_.isObject(value) && !_.isDate(value)){
                     _.forEach(value, function (v, k) {
-                       parts.push(
-                           encodeURIComponent(key + '['+k+']')+'='+encodeURIComponent(v)
-                       );
+                       serialize(v, prefix + (topLevel?'':'[') + k + (topLevel?'':']'));
                     });
                 }else{
 
-                    parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+                    parts.push(encodeURIComponent(prefix) + '=' + encodeURIComponent(value));
                 }
-            });
+            }
+            serialize(params, '', true);
             return parts.join('&');
         };
     };
