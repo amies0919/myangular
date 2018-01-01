@@ -608,25 +608,71 @@ describe('$http', function () {
            });
            expect(requests[0].url).toEqual('http://teropa.info?a%5B%5D=42&a%5B%5D=43');
        });
+       it('uses square brackets in objects', function() {
+           $http({
+               url: 'http://teropa.info',
+               params: {
+                   a: {b: 42, c: 43}
+               },
+               paramSerializer: '$HttpParamSerializerJQLike'
+           });
+           expect(requests[0].url).toEqual('http://teropa.info?a%5Bb%5D=42&a%5Bc%5D=43');
+       });
+       it('appends array indexes when items are objects', function() {
+           $http({
+               url: 'http://teropa.info',
+               params: {
+                   a: [{b: 42}]
+               },
+               paramSerializer: '$HttpParamSerializerJQLike'
+           });
+           expect(requests[0].url).toEqual('http://teropa.info?a%5B0%5D%5Bb%5D=42');
+       });
    });
-    it('uses square brackets in objects', function() {
-        $http({
-            url: 'http://teropa.info',
-            params: {
-                a: {b: 42, c: 43}
-            },
-            paramSerializer: '$HttpParamSerializerJQLike'
+   it('supports shorthand method for GET',function () {
+        $http.get('http://teropa.info',{
+            params: {q: 42}
         });
-        expect(requests[0].url).toEqual('http://teropa.info?a%5Bb%5D=42&a%5Bc%5D=43');
+        expect(requests[0].url).toBe('http://teropa.info?q=42');
+        expect(requests[0].method).toBe('GET');
+   });
+   it('supports shorthand method for HEAD', function () {
+      $http.head('http://teropa.info',{
+          params: {q: 42}
+      });
+      expect(requests[0].url).toBe('http://teropa.info?q=42');
+      expect(requests[0].method).toBe('HEAD');
+   });
+   it('supports shorthand method for DELETE', function () {
+        $http.delete('http://teropa.info', {
+            params: {q: 42}
+        });
+        expect(requests[0].url).toBe('http://teropa.info?q=42');
+        expect(requests[0].method).toBe('DELETE');
+   });
+   it('supports shorthand method for POST with data',function () {
+      $http.post('http://teropa.info','data', {
+          params: {q: 42}
+      });
+       expect(requests[0].url).toBe('http://teropa.info?q=42');
+       expect(requests[0].method).toBe('POST');
+       expect(requests[0].requestBody).toBe('data');
+   });
+    it('supports shorthand method for PUT with data', function() {
+        $http.put('http://teropa.info', 'data', {
+            params: {q: 42}
+        });
+        expect(requests[0].url).toBe('http://teropa.info?q=42');
+        expect(requests[0].method).toBe('PUT');
+        expect(requests[0].requestBody).toBe('data');
     });
-    it('appends array indexes when items are objects', function() {
-        $http({
-            url: 'http://teropa.info',
-            params: {
-                a: [{b: 42}]
-    },
-        paramSerializer: '$HttpParamSerializerJQLike'
+    it('supports shorthand method for PATCH with data', function() {
+        $http.patch('http://teropa.info', 'data', {
+            params: {q: 42}
+        });
+        expect(requests[0].url).toBe('http://teropa.info?q=42');
+        expect(requests[0].method).toBe('PATCH');
+        expect(requests[0].requestBody).toBe('data');
     });
-        expect(requests[0].url).toEqual('http://teropa.info?a%5B0%5D%5Bb%5D=42');
-    });
+
 });
