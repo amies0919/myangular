@@ -193,6 +193,12 @@ function $HttpProvider() {
         }
         function sendReq(config, reqData) {
             var deferred = $q.defer();
+            $http.pendingRequests.push(config);
+            deferred.promise.then(function () {
+               _.remove($http.pendingRequests, config);
+            }, function () {
+                _.remove($http.pendingRequests, config);
+            });
             function done(status, response, headersString,statusText) {
                 status = Math.max(status, 0);
                 deferred[isSuccess(status)?'resolve':'reject']({
@@ -213,6 +219,7 @@ function $HttpProvider() {
                 reqData,
                 done,
                 config.headers,
+                config.timeout,
                 config.withCredentials
             );
             return deferred.promise;
@@ -264,9 +271,22 @@ function $HttpProvider() {
             _.forEachRight(interceptors, function (interceptor) {
                promise = promise.then(interceptor.response, interceptor.responseError);
             });
+             promise.success = function(fn) {
+                 promise.then(function(response) {
+                     fn(response.data, response.status, response.headers, config);
+                 });
+                 return promise;
+             };
+             promise.error = function(fn) {
+                 promise.catch(function(response) {
+                     fn(response.data, response.status, response.headers, config);
+                 });
+                 return promise;
+             };
             return promise;
         }
         $http.defaults = defaults;
+        $http.pendingRequests = [];
         _.forEach(['get', 'head', 'delete'], function (method) {
            $http[method] = function (url, config) {
                return $http(_.extend(config || {}, {
