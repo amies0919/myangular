@@ -92,6 +92,27 @@ function $CompileProvider($provide) {
             });
             return terminal;
         }
+        var BOOLEAN_ATTRS = {
+            multiple: true,
+            selected: true,
+            checked: true,
+            disabled: true,
+            readOnly: true,
+            required: true,
+            open: true
+        };
+        var BOOLEAN_ELEMENTS = {
+            INPUT: true,
+            SELECT: true,
+            OPTION: true,
+            TEXTAREA: true,
+            BUTTON: true,
+            FORM: true,
+            DETAILS: true
+        };
+        function isBooleanAttribute(node, attrName) {
+            return BOOLEAN_ATTRS[attrName] && BOOLEAN_ELEMENTS[node.nodeName];
+        }
         function collectDirectives(node, attrs) {
             var directives = [];
             if (node.nodeType === Node.ELEMENT_NODE) {
@@ -120,6 +141,9 @@ function $CompileProvider($provide) {
                     normalizedAttrName = directiveNormalize(name.toLowerCase());
                     addDirective(directives, normalizedAttrName, 'A', attrStartName, attrEndName);
                     attrs[normalizedAttrName] = attr.value.trim();
+                    if (isBooleanAttribute(node, normalizedAttrName)) {
+                        attrs[normalizedAttrName] = true;
+                    }
                 });
                 _.forEach(node.classList, function (cls) {
                     var normalizedClassName = directiveNormalize(cls);
