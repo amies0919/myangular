@@ -640,6 +640,15 @@ describe('$compile', function() {
                 }
             );
         });
+        it('overrides attributes with ng-attr- versions', function() {
+            registerAndCompile(
+                'myDirective',
+                '<input my-directive ng-attr-whatevera="42" whatevera="41">',
+                function(element, attrs) {
+                    expect(attrs.whatevera).toEqual('42');
+                }
+            );
+        });
     });
 
 });
