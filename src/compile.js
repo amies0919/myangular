@@ -50,11 +50,34 @@ function $CompileProvider($provide) {
                 }
             });
         }
+        function groupScan(node, startAttr, endAttr) {
+            var nodes = [];
+            if (startAttr && node && node.hasAttribute(startAttr)) {
+                var depth = 0;
+                do {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.hasAttribute(startAttr)) {
+                            depth++;
+                        } else if (node.hasAttribute(endAttr)) {
+                            depth--;
+                        }
+                    }
+                    nodes.push(node);
+                    node = node.nextSibling;
+                } while (depth > 0);
+            } else {
+                nodes.push(node);
+            }
+            return $(nodes);
+        }
         function applyDirectivesToNode(directives, compileNode) {
             var $compileNode = $(compileNode);
             var terminalPriority = -Number.MAX_VALUE;
             var terminal = false;
             _.forEach(directives, function(directive) {
+                if (directive.$$start) {
+                    $compileNode = groupScan(compileNode, directive.$$start, directive.$$end);
+                }
                 if (directive.priority < terminalPriority) {
                     return false;
                 }
@@ -74,13 +97,27 @@ function $CompileProvider($provide) {
                 var normalizedNodeName = directiveNormalize(nodeName(node).toLowerCase());
                 addDirective(directives, normalizedNodeName, 'E');
                 _.forEach(node.attributes, function (attr) {
-                    var normalizedAttrName = directiveNormalize(attr.name.toLowerCase());
+                    var attrStartName, attrEndName;
+                    var name = attr.name;
+                    var normalizedAttrName = directiveNormalize(name.toLowerCase());
                     if (/^ngAttr[A-Z]/.test(normalizedAttrName)) {
-                        normalizedAttrName =
+                        name = _.kebabCase(
                             normalizedAttrName[6].toLowerCase() +
-                            normalizedAttrName.substring(7);
+                            normalizedAttrName.substring(7)
+                        );
                     }
-                    addDirective(directives, normalizedAttrName, 'A');
+                    var directiveNName = normalizedAttrName.replace(/(Start|End)$/, '');
+                    if (directiveIsMultiElement(directiveNName)) {
+                        if (/Start$/.test(normalizedAttrName)) {
+                            attrStartName = name;
+                            attrEndName =
+                                name.substring(0, name.length - 5) + 'End';
+                            name =
+                                name.substring(0, name.length - 5);
+                        }
+                    }
+                    normalizedAttrName = directiveNormalize(name.toLowerCase());
+                    addDirective(directives, normalizedAttrName, 'A', attrStartName, attrEndName);
                 });
                 _.forEach(node.classList, function (cls) {
                     var normalizedClassName = directiveNormalize(cls);
@@ -95,6 +132,13 @@ function $CompileProvider($provide) {
             directives.sort(byPriority);
             return directives;
         }
+        function directiveIsMultiElement(name) {
+            if (hasDirectives.hasOwnProperty(name)) {
+                var directives = $injector.get(name + 'Directive');
+                return _.some(directives, {multiElement: true});
+            }
+            return false;
+        }
         function byPriority(a, b) {
             var diff = b.priority - a.priority;
             if (diff !== 0) {
@@ -107,13 +151,21 @@ function $CompileProvider($provide) {
                 }
             }
         }
-        function addDirective(directives, name, mode) {
+        function addDirective(directives, name, mode, attrStartName, attrEndName) {
             if (hasDirectives.hasOwnProperty(name)) {
                 var foundDirectives = $injector.get(name + 'Directive');
                 var applicableDirectives = _.filter(foundDirectives, function(dir) {
                     return dir.restrict.indexOf(mode) !== -1;
                 });
-                directives.push.apply(directives, applicableDirectives);
+                _.forEach(applicableDirectives, function(directive) {
+                    if (attrStartName) {
+                        directive = _.create(directive, {
+                            $$start: attrStartName,
+                            $$end: attrEndName
+                        });
+                    }
+                    directives.push(directive);
+                });
             }
         }
         return compile;
