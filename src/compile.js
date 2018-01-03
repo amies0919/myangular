@@ -134,11 +134,16 @@ function $CompileProvider($provide) {
                 }
             });
             function compositeLinkFn(scope, linkNodes) {
+                var stableNodeList = [];
+                _.forEach(linkFns, function(linkFn) {
+                    var nodeIdx = linkFn.idx;
+                    stableNodeList[nodeIdx] = linkNodes[nodeIdx];
+                });
                 _.forEach(linkFns, function (linkFn) {
                     if(linkFn.nodeLinkFn){
-                        linkFn.nodeLinkFn(linkFn.childLinkFn, scope, linkNodes[linkFn.idx]);
+                        linkFn.nodeLinkFn(linkFn.childLinkFn, scope, stableNodeList[linkFn.idx]);
                     }else{
-                        linkFn.childLinkFn(scope, linkNodes[linkFn.idx].childNodes);
+                        linkFn.childLinkFn(scope, stableNodeList[linkFn.idx].childNodes);
                     }
                 });
             }
