@@ -102,7 +102,10 @@ function $CompileProvider($provide) {
             };
         }
         function compile($compileNodes) {
-            return compileNodes($compileNodes);
+            compileNodes($compileNodes);
+            return function publiclinkFn(scope) {
+                $compileNodes.data('$scope',scope);
+            };
 
         }
         function compileNodes($compileNodes) {
