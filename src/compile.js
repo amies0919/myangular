@@ -11,11 +11,12 @@ function nodeName(element) {
 function parseIsolateBindings(scope) {
     var bindings = {};
     _.forEach(scope, function(defnition, scopeName) {
-        var match = defnition.match(/\s*([@<])(\??)\s*(\w*)\s*/);
+        var match = defnition.match(/\s*([@<]|=(\*?))(\??)\s*(\w*)\s*/);
         bindings[scopeName] = {
-            mode: match[1],
-            optional: match[2],
-            attrName: match[3] || scopeName
+            mode: match[1][0],
+            collection: match[2] === '*',
+            optional: match[3],
+            attrName: match[4] || scopeName
         };
     });
     return bindings;
@@ -266,6 +267,7 @@ function $CompileProvider($provide) {
                     $element.data('$isolateScope', isolateScope);
                     _.forEach(newIsolateScopeDirective.$$isolateBindings, function(defnition, scopeName) {
                         var attrName = defnition.attrName;
+                        var parentGet, unwatch;
                         switch (defnition.mode){
                                 case '@':
                                     attrs.$observe(attrName, function (newAttrValue) {
@@ -275,17 +277,41 @@ function $CompileProvider($provide) {
                                         isolateScope[scopeName] = attrs[attrName];
                                     }
                                     break;
-                            case '<':
-                                if(defnition.optional && !attrs[attrName]){
+                                case '<':
+                                    if(defnition.optional && !attrs[attrName]){
+                                        break;
+                                    }
+                                    parentGet = $parse(attrs[attrName]);
+                                    isolateScope[scopeName] = parentGet(scope);
+                                    unwatch = scope.$watch(parentGet, function (newValue) {
+                                        isolateScope[scopeName] = newValue;
+                                    });
+                                    isolateScope.$on('$destroy',unwatch);
                                     break;
-                                }
-                                var parentGet = $parse(attrs[attrName]);
-                                isolateScope[scopeName] = parentGet(scope);
-                                var unwatch = scope.$watch(parentGet, function (newValue) {
-                                    isolateScope[scopeName] = newValue;
-                                });
-                                isolateScope.$on('$destroy',unwatch);
-                                break;
+                                case '=':
+                                    if(defnition.optional && !attrs[attrName]){
+                                        break;
+                                    }
+                                    parentGet = $parse(attrs[attrName]);
+                                    var lastValue = isolateScope[scopeName] = parentGet(scope);
+                                    var parentValueWatch = function() {
+                                        var parentValue = parentGet(scope);
+                                        if ( parentValue !== lastValue) {
+                                            isolateScope[scopeName] = parentValue;
+                                        }else{
+                                            parentValue = isolateScope[scopeName];
+                                            parentGet.assign(scope, parentValue);
+                                        }
+                                        lastValue = parentValue;
+                                        return parentValue;
+                                    };
+                                    if (defnition.collection) {
+                                        unwatch = scope.$watchCollection(attrs[attrName], parentValueWatch);
+                                    } else {
+                                        unwatch = scope.$watch(parentValueWatch);
+                                    }
+                                    isolateScope.$on('$destroy',unwatch);
+                                    break;
                             }
                         });
                 }
