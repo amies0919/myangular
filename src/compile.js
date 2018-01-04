@@ -8,6 +8,18 @@ function directiveNormalize(name) {
 function nodeName(element) {
     return element.nodeName ? element.nodeName : element[0].nodeName;
 }
+function parseIsolateBindings(scope) {
+    var bindings = {};
+    _.forEach(scope, function(defnition, scopeName) {
+        var match = defnition.match(/\s*@\s*(\w*)\s*/);
+        bindings[scopeName] = {
+            mode: '@',
+            attrName: match[1] || scopeName
+        };
+    });
+    return bindings;
+    
+}
 function $CompileProvider($provide) {
     var hasDirectives = {};
     this.directive = function (name, directiveFactory) {
@@ -25,6 +37,9 @@ function $CompileProvider($provide) {
                         directive.priority = directive.priority || 0;
                         if(directive.link && !directive.compile){
                             directive.compile = _.constant(directive.link);
+                        }
+                        if(_.isObject(directive.scope)){
+                            directive.$$isolateBindings = parseIsolateBindings(directive.scope);
                         }
                         directive.name = directive.name || name;
                         directive.index = i;
@@ -248,7 +263,21 @@ function $CompileProvider($provide) {
                     isolateScope = scope.$new(true);
                     $element.addClass('ng-isolate-scope');
                     $element.data('$isolateScope', isolateScope);
+                    _.forEach(newIsolateScopeDirective.$$isolateBindings, function(defnition, scopeName) {
+                        var attrName = defnition.attrName;
+                        switch (defnition.mode){
+                                case '@':
+                                    attrs.$observe(attrName, function (newAttrValue) {
+                                        isolateScope[scopeName] = newAttrValue;
+                                    });
+                                    if (attrs[attrName]) {
+                                        isolateScope[scopeName] = attrs[attrName];
+                                    }
+                                    break;
+                            }
+                        });
                 }
+
                 _.forEach(preLinkFns, function (linkFn) {
                     linkFn(linkFn.isolateScope ? isolateScope : scope, $element, attrs);
                 });
