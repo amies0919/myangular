@@ -1,6 +1,7 @@
 'use strict';
 var publishExternalAPI = require('../src/angular_public');
 var createInjector = require('../src/injector');
+var $ = require('jquery');
 describe('$controller', function () {
    beforeEach(function () {
       delete window.angular;
@@ -96,5 +97,44 @@ describe('$controller', function () {
         var controller = $controller('MyController');
         expect(controller).toBeDefined();
         expect(controller instanceof window.MyController).toBe(true);
+    });
+    describe('controllers', function () {
+        it('can be attached to directives as functions', function () {
+           var controllerInvoked;
+           var injector = createInjector(['ng', function ($compileProvider) {
+               $compileProvider.directive('myDirective',function () {
+                   return {
+                       controller: function MyController() {
+                            controllerInvoked = true;
+                       }
+                   };
+               });
+           }]);
+           injector.invoke(function ($compile, $rootScope) {
+               var el = $('<div my-directive></div>');
+               $compile(el)($rootScope);
+               expect(controllerInvoked).toBe(true);
+           });
+        });
+        it('can be attached to directives as string references', function () {
+            var controllerInvoked;
+            function MyController() {
+                controllerInvoked = true;
+            }
+            var injector = createInjector(['ng', function ($controllerProvider, $compileProvider) {
+                $controllerProvider.register('MyController', MyController);
+                $compileProvider.directive('myDirective',function () {
+                    return {
+                        controller: 'MyController'
+                    };
+                });
+            }]);
+            injector.invoke(function ($compile, $rootScope) {
+                var el = $('<div my-directive></div>');
+                $compile(el)($rootScope);
+                expect(controllerInvoked).toBe(true);
+            });
+        });
+
     });
 });
