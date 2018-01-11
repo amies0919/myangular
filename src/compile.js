@@ -267,11 +267,16 @@ function $CompileProvider($provide) {
                 var $element = $(linkNode);
                 if(controllerDirectives){
                     _.forEach(controllerDirectives, function (directive) {
+                        var locals = {
+                            $scope: scope,
+                            $element: $element,
+                            $attrs: attrs
+                        };
                         var controllerName = directive.controller;
                         if(controllerName === '@'){
                             controllerName = attrs[directive.name];
                         }
-                        $controller(controllerName);
+                        $controller(controllerName, locals);
                     });
                 }
                 var isolateScope;
