@@ -36,6 +36,17 @@ function parseDirectiveBindings(directive) {
     }
     return bindings;
 }
+function getDirectiveRequire(directive) {
+    var require = directive.require;
+    if (!_.isArray(require) && _.isObject(require)) {
+        _.forEach(require, function(value, key) {
+            if (!value.length) {
+                require[key] = key;
+            }
+        });
+    }
+    return require;
+}
 function $CompileProvider($provide) {
     var hasDirectives = {};
     this.directive = function (name, directiveFactory) {
@@ -59,6 +70,7 @@ function $CompileProvider($provide) {
                             directive.$$isolateBindings = parseIsolateBindings(directive.scope);
                         }
                         directive.name = directive.name || name;
+                        directive.require = getDirectiveRequire(directive);
                         directive.index = i;
                         return directive;
                     });
@@ -286,7 +298,9 @@ function $CompileProvider($provide) {
             var controllerDirectives;
             function getControllers(require) {
                 if(_.isArray(require)){
-                    return _.map(require,getControllers);
+                    return _.map(require, getControllers);
+                }else if(_.isObject(require)){
+                    return _.mapValues(require, getControllers);
                 }else{
                     var value;
                     if (controllers[require]) {
