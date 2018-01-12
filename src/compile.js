@@ -284,12 +284,23 @@ function $CompileProvider($provide) {
             var preLinkFns = [],postLinkFns = [], controllers = {};
             var newScopeDirective, newIsolateScopeDirective;
             var controllerDirectives;
-            function addLinkFns(preLinkFn, postLinkFn, attrStart, attrEnd, isolateScope) {
+            function getControllers(require) {
+                var value;
+                if (controllers[require]) {
+                    value = controllers[require].instance;
+                }
+                if (!value) {
+                    throw 'Controller '+require+' required by directive, cannot be found!';
+                }
+                return value;
+            }
+            function addLinkFns(preLinkFn, postLinkFn, attrStart, attrEnd, isolateScope, require) {
                 if (preLinkFn) {
                     if (attrStart) {
                         preLinkFn = groupElementsLinkFnWrapper(preLinkFn, attrStart, attrEnd);
                     }
                     preLinkFn.isolateScope = isolateScope;
+                    preLinkFn.require = require;
                     preLinkFns.push(preLinkFn);
                 }
                 if (postLinkFn) {
@@ -297,6 +308,7 @@ function $CompileProvider($provide) {
                         postLinkFn = groupElementsLinkFnWrapper(postLinkFn, attrStart, attrEnd);
                     }
                     postLinkFn.isolateScope = isolateScope;
+                    postLinkFn.require = require;
                     postLinkFns.push(postLinkFn);
                 }
             }
@@ -387,13 +399,13 @@ function $CompileProvider($provide) {
                     controller();
                 });
                 _.forEach(preLinkFns, function (linkFn) {
-                    linkFn(linkFn.isolateScope ? isolateScope : scope, $element, attrs);
+                    linkFn(linkFn.isolateScope ? isolateScope : scope, $element, attrs, linkFn.require && getControllers(linkFn.require));
                 });
                 if(childLinkFn){
                     childLinkFn(scope, linkNode.childNodes);
                 }
                 _.forEachRight(postLinkFns, function (linkFn) {
-                   linkFn(linkFn.isolateScope ? isolateScope : scope, $element, attrs);
+                   linkFn(linkFn.isolateScope ? isolateScope : scope, $element, attrs, linkFn.require && getControllers(linkFn.require));
                 });
             }
             nodeLinkFn.terminal = terminal;
