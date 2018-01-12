@@ -325,10 +325,11 @@ function $CompileProvider($provide) {
                     var isolateScope = (directive === newIsolateScopeDirective);
                     var attrStart = directive.$$start;
                     var attrEnd = directive.$$end;
+                    var require = directive.require;
                     if(_.isFunction(linkFn)){
-                        addLinkFns(null, linkFn, attrStart, attrEnd, isolateScope);
+                        addLinkFns(null, linkFn, attrStart, attrEnd, isolateScope, require);
                     }else if(linkFn){
-                        addLinkFns(linkFn.pre, linkFn.post, attrStart, attrEnd, isolateScope);
+                        addLinkFns(linkFn.pre, linkFn.post, attrStart, attrEnd, isolateScope, require);
                     }
                 }
                 if (directive.terminal) {
