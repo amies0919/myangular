@@ -254,14 +254,32 @@ function $CompileProvider($provide) {
                 });
                 _.forEach(linkFns, function (linkFn) {
                     var node = stableNodeList[linkFn.idx];
-                    if (linkFn.nodeLinkFn && linkFn.nodeLinkFn.scope) {
-                        scope = scope.$new();
-                        $(node).data('$scope', scope);
-                    }
                     if(linkFn.nodeLinkFn){
-                        linkFn.nodeLinkFn(linkFn.childLinkFn, scope, node);
+                        var childScope;
+                        if (linkFn.nodeLinkFn.scope) {
+                            childScope = scope.$new();
+                            $(node).data('$scope', childScope);
+                        }else{
+                            childScope = scope;
+                        }
+                        var boundTranscludeFn;
+                        if (linkFn.nodeLinkFn.transcludeOnThisElement) {
+                            boundTranscludeFn = function(transcludedScope, containingScope) {
+                                if (!transcludedScope) {
+                                    transcludedScope = scope.$new(false, containingScope);
+                                }
+                                return linkFn.nodeLinkFn.transclude(transcludedScope);
+                            };
+                        }
+                        linkFn.nodeLinkFn(
+                            linkFn.childLinkFn,
+                            childScope,
+                            node,
+                            boundTranscludeFn
+                        );
                     }else{
                         linkFn.childLinkFn(scope, node.childNodes);
+
                     }
                 });
             }
@@ -475,7 +493,7 @@ function $CompileProvider($provide) {
                     controllerDirectives[directive.name] = directive;
                 }
             });
-            function nodeLinkFn(childLinkFn, scope, linkNode) {
+            function nodeLinkFn(childLinkFn, scope, linkNode, boundTranscludeFn) {
                 var $element = $(linkNode);
                 var isolateScope;
                 if(newIsolateScopeDirective){
@@ -532,12 +550,15 @@ function $CompileProvider($provide) {
 
                     }
                 });
+                function scopeBoundTranscludeFn(transcludedScope) {
+                    return boundTranscludeFn(transcludedScope, scope);
+                }
                 _.forEach(preLinkFns, function (linkFn) {
                     linkFn(linkFn.isolateScope ? isolateScope : scope,
                         $element,
                         attrs,
                         linkFn.require && getControllers(linkFn.require, $element),
-                        childTranscludeFn
+                        scopeBoundTranscludeFn
                     );
                 });
                 if(childLinkFn){
@@ -552,12 +573,14 @@ function $CompileProvider($provide) {
                        $element,
                        attrs,
                        linkFn.require && getControllers(linkFn.require, $element),
-                       childTranscludeFn
+                       scopeBoundTranscludeFn
                        );
                 });
             }
             nodeLinkFn.terminal = terminal;
             nodeLinkFn.scope = newScopeDirective && newScopeDirective.scope;
+            nodeLinkFn.transcludeOnThisElement = hasTranscludeDirective;
+            nodeLinkFn.transclude = childTranscludeFn;
             return nodeLinkFn;
         }
         var BOOLEAN_ATTRS = {
