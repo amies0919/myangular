@@ -298,6 +298,7 @@ function $CompileProvider($provide) {
             var terminal = false;
             var preLinkFns = [],postLinkFns = [], controllers = {};
             var newScopeDirective, newIsolateScopeDirective;
+            var templateDirective;
             var controllerDirectives;
             function getControllers(require, $element) {
                 if(_.isArray(require)){
@@ -391,6 +392,10 @@ function $CompileProvider($provide) {
                     }
                 }
                 if(directive.template){
+                    if (templateDirective) {
+                        throw 'Multiple directives asking for template';
+                    }
+                    templateDirective = directive;
                     $compileNode.html(directive.template);
                 }
                 if (directive.terminal) {
