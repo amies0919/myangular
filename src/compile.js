@@ -330,7 +330,9 @@ function $CompileProvider($provide) {
             var $compileNode = $(compileNode);
             var terminalPriority = -Number.MAX_VALUE;
             var terminal = false;
-            var preLinkFns = [],postLinkFns = [], controllers = {};
+            var preLinkFns = previousCompileContext.preLinkFns || [];
+            var postLinkFns = previousCompileContext.postLinkFns || [];
+            var controllers = {};
             var newScopeDirective, newIsolateScopeDirective;
             var templateDirective = previousCompileContext.templateDirective;
             var controllerDirectives;
@@ -418,7 +420,15 @@ function $CompileProvider($provide) {
                         throw 'Multiple directives asking for template';
                     }
                     templateDirective = directive;
-                    nodeLinkFn = compileTemplateUrl(_.drop(directives, i), $compileNode, attrs,{templateDirective: templateDirective});
+                    nodeLinkFn = compileTemplateUrl(
+                        _.drop(directives, i),
+                        $compileNode,
+                        attrs,
+                        {
+                            templateDirective: templateDirective,
+                            preLinkFns: preLinkFns,
+                            postLinkFns: postLinkFns
+                        });
                     return false;
                 }else if (directive.compile) {
                     var linkFn = directive.compile($compileNode, attrs);
