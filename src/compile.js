@@ -473,7 +473,11 @@ function $CompileProvider($provide) {
                         linkFn.require && getControllers(linkFn.require, $element));
                 });
                 if(childLinkFn){
-                    childLinkFn(scope, linkNode.childNodes);
+                    var scopeToChild = scope;
+                    if (newIsolateScopeDirective && newIsolateScopeDirective.template) {
+                        scopeToChild = isolateScope;
+                    }
+                    childLinkFn(scopeToChild, linkNode.childNodes);
                 }
                 _.forEachRight(postLinkFns, function (linkFn) {
                    linkFn(linkFn.isolateScope ? isolateScope : scope,
