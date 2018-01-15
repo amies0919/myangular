@@ -3,6 +3,7 @@ var _ = require('lodash');
 var $ = require('jquery');
 var PREFIX_REGEXP = /(x[\:\-_]|data[\:\-_])/i;
 var REQUIRE_PREFIX_REGEXP = /^(\^\^?)?(\?)?(\^\^?)?/;
+var identiferForController = require('./controller').identiferForController;
 function directiveNormalize(name) {
     return _.camelCase(name.replace(PREFIX_REGEXP, ''));
 }
@@ -90,7 +91,10 @@ function $CompileProvider($provide) {
         function factory() {
             return {
                 restrict: 'E',
-                controller: options.controller
+                controller: options.controller,
+                controllerAs: options.controllerAs || identiferForController(options.controller) ||'$ctrl',
+                scope: {},
+                bindToController: options.bindings || {}
             };
         }
         return this.directive(name, factory);
