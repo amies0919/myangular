@@ -2888,7 +2888,9 @@ describe('$compile', function() {
         it('removes the children of the element from the DOM', function() {
             var injector = makeInjectorWithDirectives({
                 myTranscluder: function() {
-                    return {transclude: true};
+                    return {
+                        transclude: true
+                    };
                 }
             });
             injector.invoke(function($compile) {
@@ -2901,10 +2903,14 @@ describe('$compile', function() {
             var insideCompileSpy = jasmine.createSpy();
             var injector = makeInjectorWithDirectives({
                 myTranscluder: function() {
-                    return {transclude: true};
+                    return {
+                        transclude: true
+                    };
                 },
                 insideTranscluder: function() {
-                    return {compile: insideCompileSpy};
+                    return {
+                        compile: insideCompileSpy
+                    };
                 }
             });
             injector.invoke(function($compile) {
@@ -2934,10 +2940,14 @@ describe('$compile', function() {
         it('is only allowed once per element', function() {
             var injector = makeInjectorWithDirectives({
                 myTranscluder: function() {
-                    return {transclude: true};
+                    return {
+                        transclude: true
+                    };
                 },
                 mySecondTranscluder: function() {
-                    return {transclude: true};
+                    return {
+                        transclude: true
+                    };
                 }
             });
             injector.invoke(function($compile) {
@@ -3112,7 +3122,7 @@ describe('$compile', function() {
                         link: function(scope, element, attrs, ctrl, transclude) {
                             var customTemplate = $('<div in-custom-template></div>');
                             element.append(customTemplate);
-                            $compile(customTemplate)(scope, {
+                            $compile(customTemplate)(scope,undefined , {
                                 parentBoundTranscludeFn: transclude
                             });
                         }
@@ -3141,7 +3151,7 @@ describe('$compile', function() {
                         link: function(scope, element, attrs, ctrl, transclude) {
                             var customTemplate = $('<div in-custom-template></div>');
                             element.append(customTemplate);
-                            $compile(customTemplate)(scope, {
+                            $compile(customTemplate)(scope,undefined, {
                                 parentBoundTranscludeFn: transclude
                             });
                         }
@@ -3196,7 +3206,126 @@ describe('$compile', function() {
                 expect(el.find('> [in-template] > [in-transclude]').length).toBe(1);
             });
         });
-
+        describe("clone attach function", function () {
+            it('can be passed to public link fn', function () {
+                var injector = makeInjectorWithDirectives({});
+                injector.invoke(function ($compile, $rootScope) {
+                   var el = $('<div>Hello</div>');
+                   var myScope = $rootScope.$new();
+                   var gotEl,gotScope;
+                   $compile(el)(myScope, function cloneAttachFn(el, scope) {
+                       gotEl = el;
+                       gotScope = scope;
+                   });
+                    expect(gotEl[0].isEqualNode(el[0])).toBe(true);
+                    expect(gotScope).toBe(myScope);
+                });
+            });
+            it('causes compiled elements to be cloned', function() {
+                var injector = makeInjectorWithDirectives({});
+                injector.invoke(function($compile, $rootScope) {
+                    var el = $('<div>Hello</div>');
+                    var myScope = $rootScope.$new();
+                    var gotClonedEl;
+                    $compile(el)(myScope, function(clonedEl) {
+                        gotClonedEl = clonedEl;
+                    });
+                    expect(gotClonedEl[0].isEqualNode(el[0])).toBe(true);
+                    expect(gotClonedEl[0]).not.toBe(el[0]);
+                });
+            });
+            it('causes cloned DOM to be linked', function() {
+                var gotCompileEl, gotLinkEl;
+                var injector = makeInjectorWithDirectives({
+                    myDirective: function() {
+                        return {
+                            compile: function(compileEl) {
+                                gotCompileEl = compileEl;
+                                return function link(scope, linkEl) {
+                                    gotLinkEl = linkEl;
+                                };
+                            }
+                        };
+                    }
+                });
+                injector.invoke(function($compile, $rootScope) {
+                    var el = $('<div my-directive></div>');
+                    var myScope = $rootScope.$new();
+                    $compile(el)(myScope, function() {});
+                    expect(gotCompileEl[0]).not.toBe(gotLinkEl[0]);
+                });
+            });
+            it('allows connecting transcluded content', function() {
+                var injector = makeInjectorWithDirectives({
+                    myTranscluder: function() {
+                        return {
+                            transclude: true,
+                            template: '<div in-template></div>',
+                            link: function(scope, element, attrs, ctrl, transcludeFn) {
+                                var myScope = scope.$new();
+                                transcludeFn(myScope, function(transclNode) {
+                                    element.find('[in-template]').append(transclNode);
+                                });
+                            }
+                        };
+                    }
+                });
+                injector.invoke(function($compile, $rootScope) {
+                    var el = $('<div my-transcluder><div in-transclude></div></div>');
+                    $compile(el)($rootScope);
+                    expect(el.find('> [in-template] > [in-transclude]').length).toBe(1);
+                });
+            });
+            it('can be used as the only transclusion function argument', function() {
+                var injector = makeInjectorWithDirectives({
+                    myTranscluder: function() {
+                        return {
+                            transclude: true,
+                            template: '<div in-template></div>',
+                            link: function(scope, element, attrs, ctrl, transcludeFn) {
+                                transcludeFn(function(transclNode) {
+                                    element.find('[in-template]').append(transclNode);
+                                });
+                            }
+                        };
+                    }
+                });
+                injector.invoke(function($compile, $rootScope) {
+                    var el = $('<div my-transcluder><div in-transclusion></div></div>');
+                    $compile(el)($rootScope);
+                    expect(el.find('> [in-template] > [in-transclusion]').length).toBe(1);
+                });
+            });
+            it('allows passing data to transclusion', function() {
+                var injector = makeInjectorWithDirectives({
+                    myTranscluder: function() {
+                        return {
+                            transclude: true,
+                            template: '<div in-template></div>',
+                            link: function(scope, element, attrs, ctrl, transcludeFn) {
+                                transcludeFn(function(transclNode, transclScope) {
+                                    transclScope.dataFromTranscluder = 'Hello from transcluder';
+                                    element.find('[in-template]').append(transclNode);
+                                });
+                            }
+                        };
+                    },
+                    myOtherDirective: function() {
+                        return {
+                            link: function(scope, element) {
+                                element.html(scope.dataFromTranscluder);
+                            }
+                        };
+                    }
+                });
+                injector.invoke(function($compile, $rootScope) {
+                    var el = $('<div my-transcluder><div my-other-directive></div></div>');
+                    $compile(el)($rootScope);
+                    expect(el.find('> [in-template] > [my-other-directive]').html())
+                        .toEqual('Hello from transcluder');
+                });
+            });
+        });
     });
 
 });
