@@ -86,7 +86,7 @@ function $CompileProvider($provide) {
             }, this));
         }
     };
-    this.$get = ['$injector','$parse','$controller', '$rootScope','$http', function($injector, $parse, $controller, $rootScope, $http) {
+    this.$get = ['$injector','$parse','$controller', '$rootScope','$http','$interpolate', function($injector, $parse, $controller, $rootScope, $http,$interpolate) {
         function initializeDirectiveBindings(scope, attrs,destination, bindings, newScope) {
             _.forEach(bindings, function(defnition, scopeName) {
                 var attrName = defnition.attrName;
@@ -715,6 +715,8 @@ function $CompileProvider($provide) {
                         attrs[normalizedName] = match[2] ? match[2].trim() : undefined;
                     }
                 }
+            } else if (node.nodeType === Node.TEXT_NODE) {
+                addTextInterpolateDirective(directives, node.nodeValue);
             }
             directives.sort(byPriority);
             return directives;
@@ -757,6 +759,25 @@ function $CompileProvider($provide) {
                 });
             }
             return match;
+        }
+        function addTextInterpolateDirective(directives, text) {
+            var interpolateFn = $interpolate(text, true);
+            if (interpolateFn) {
+                directives.push({
+                    priority: 0,
+                    compile: function() {
+                        return function link(scope, element) {
+                            var bindings = element.parent().data('$binding') || [];
+                            bindings = bindings.concat(interpolateFn.expressions);
+                            element.parent().data('$binding', bindings);
+                            element.parent().addClass('ng-binding');
+                            scope.$watch(interpolateFn, function(newValue) {
+                                element[0].nodeValue = newValue;
+                            });
+                        };
+                    }
+                });
+            }
         }
         return compile;
     }];
