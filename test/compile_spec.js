@@ -4051,6 +4051,47 @@ describe('$compile', function() {
                     expect(secondControllerInstance.first).toBeDefined();
                 });
             });
+            describe('lifecycle', function() {
+                it('calls $onInit after all ctrls created before linking', function() {
+                    var invocations = [];
+                    var injector = createInjector(['ng', function($compileProvider) {
+                        $compileProvider.component('frst', {
+                            controller: function() {
+                                invocations.push('frst controller created');
+                                this.$onInit = function() {
+                                    invocations.push('frst controller $onInit');
+                                };
+                            }
+                        });
+                        $compileProvider.directive('second', function() {
+                            return {
+                                controller: function() {
+                                    invocations.push('second controller created');
+                                    this.$onInit = function() {
+                                        invocations.push('second controller $onInit');
+                                    };
+                                },
+                                link: {
+                                    pre: function() { invocations.push('second prelink'); },
+                                    post: function() { invocations.push('second postlink'); }
+                                }
+                            };
+                        });
+                    }]);
+                    injector.invoke(function($compile, $rootScope) {
+                        var el = $('<frst second></frst>');
+                        $compile(el)($rootScope);
+                        expect(invocations).toEqual([
+                            'frst controller created',
+                            'second controller created',
+                            'frst controller $onInit',
+                            'second controller $onInit',
+                            'second prelink',
+                            'second postlink'
+                        ]);
+                    });
+                });
+            });
         });
     });
 
