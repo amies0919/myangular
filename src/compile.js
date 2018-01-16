@@ -4,6 +4,18 @@ var $ = require('jquery');
 var PREFIX_REGEXP = /(x[\:\-_]|data[\:\-_])/i;
 var REQUIRE_PREFIX_REGEXP = /^(\^\^?)?(\?)?(\^\^?)?/;
 var identiferForController = require('./controller').identiferForController;
+function makeInjectable(template, $injector) {
+    if (_.isFunction(template) || _.isArray(template)) {
+        return function(element, attrs) {
+            return $injector.invoke(template, this,{
+                $element: element,
+                $attrs: attrs
+            });
+        };
+    } else {
+        return template;
+    }
+}
 function directiveNormalize(name) {
     return _.camelCase(name.replace(PREFIX_REGEXP, ''));
 }
@@ -88,15 +100,18 @@ function $CompileProvider($provide) {
         }
     };
     this.component = function(name, options) {
-        function factory() {
+        function factory($injector) {
             return {
                 restrict: 'E',
                 controller: options.controller,
                 controllerAs: options.controllerAs || identiferForController(options.controller) ||'$ctrl',
                 scope: {},
-                bindToController: options.bindings || {}
+                bindToController: options.bindings || {},
+                template: makeInjectable(options.template,$injector),
+                templateUrl: makeInjectable(options.templateUrl, $injector)
             };
         }
+        factory.$inject = ['$injector'];
         return this.directive(name, factory);
     };
     this.$get = ['$injector','$parse','$controller', '$rootScope','$http','$interpolate', function($injector, $parse, $controller, $rootScope, $http,$interpolate) {
